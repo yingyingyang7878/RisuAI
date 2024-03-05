@@ -147,11 +147,7 @@
     <span class="text-textcolor">Mancer {language.apiKey}</span>
     <TextInput marginBottom={true} size={"sm"} placeholder="..." bind:value={$DataBase.mancerHeader}/>
 {/if}
-{#if $DataBase.aiModel.startsWith('claude-3') || $DataBase.subModel.startsWith('claude-3')}
-    <span class="text-textcolor">Claude {language.apiKey}</span>
-    <TextInput marginBottom={true} size={"sm"} placeholder="..." bind:value={$DataBase.claudeAPIKey}/>
-{/if}
-{#if $DataBase.aiModel.startsWith('claude-1') || $DataBase.subModel.startsWith('claude-1') || $DataBase.subModel.startsWith('claude-2') || $DataBase.subModel.startsWith('claude-2')}
+{#if $DataBase.aiModel.startsWith('claude-') || $DataBase.subModel.startsWith('claude-')}
     <span class="text-textcolor">Claude {language.apiKey}</span>
     <TextInput marginBottom={true} size={"sm"} placeholder="..." bind:value={$DataBase.claudeAPIKey}/>
     {#if $DataBase.useExperimental}
@@ -188,6 +184,8 @@
         <OptionInput value="claude-v1.2">claude-v1.2</OptionInput>
         <OptionInput value="claude-instant-v1.1">claude-instant-v1.1</OptionInput>
         <OptionInput value="claude-instant-v1.1-100k">claude-instant-v1.1-100k</OptionInput>
+        <OptionInput value="claude-3-opus-20240229">claude-3-opus-20240229</OptionInput>
+        <OptionInput value="claude-3-sonnet-20240229">claude-3-sonnet-20240229</OptionInput>
         <OptionInput value="custom">Custom</OptionInput>
     </SelectInput>
     {#if $DataBase.proxyRequestModel === 'custom'}
