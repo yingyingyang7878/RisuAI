@@ -4,7 +4,7 @@ import { DataBase, setDatabase, type character } from "../storage/database";
 import { pluginProcess } from "../plugins/plugins";
 import { language } from "../../lang";
 import { stringlizeAINChat, stringlizeChat, stringlizeChatOba, getStopStrings, unstringlizeAIN, unstringlizeChat } from "./stringlize";
-import { addFetchLog, globalFetch, isNodeServer, isTauri } from "../storage/globalApi";
+import { addFetchLog, fetchNative, globalFetch, isNodeServer, isTauri, textifyReadableStream } from "../storage/globalApi";
 import { sleep } from "../util";
 import { createDeep } from "./deepai";
 import { hubURL } from "../characterCards";
@@ -22,6 +22,7 @@ import { OaifixBias } from "../plugins/fixer";
 import { Capacitor } from "@capacitor/core";
 import { getFreeOpenRouterModel } from "../model/openrouter";
 import { runTransformers } from "./embedding/transformers";
+import {createParser, type ParsedEvent, type ReconnectInterval} from 'eventsource-parser'
 
 
 
@@ -526,36 +527,24 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
                         }
                     }
                 }
-                const da =  (throughProxi)
-                    ? await fetch(hubURL + `/proxy2`, {
-                        body: JSON.stringify(body),
-                        headers: {
-                            "risu-header": encodeURIComponent(JSON.stringify(headers)),
-                            "risu-url": encodeURIComponent(replacerURL),
-                            "Content-Type": "application/json",
-                            "x-risu-tk": "use"
-                        },
-                        method: "POST",
-                        signal: abortSignal
-                    })
-                    : await fetch(replacerURL, {
-                        body: JSON.stringify(body),
-                        method: "POST",
-                        headers: headers,
-                        signal: abortSignal
-                    })  
+                const da = await fetchNative(replacerURL, {
+                    body: JSON.stringify(body),
+                    method: "POST",
+                    headers: headers,
+                    signal: abortSignal
+                })
 
                 if(da.status !== 200){
                     return {
                         type: "fail",
-                        result: await da.text()
+                        result: await textifyReadableStream(da.body)
                     }
                 }
 
                 if (!da.headers.get('Content-Type').includes('text/event-stream')){
                     return {
                         type: "fail",
-                        result: await da.text()
+                        result: await textifyReadableStream(da.body)
                     }
                 }
 
@@ -1502,6 +1491,7 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
                     temperature: temperature,
                     top_p: db.top_p,
                     top_k: db.top_k,
+                    stream: db.useStreaming ?? false
                 }
 
                 if(systemPrompt === ''){
@@ -1590,6 +1580,70 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
                     }
                 }
 
+                if(db.useStreaming){
+                    
+                    const res = await fetchNative(replacerURL, {
+                        body: JSON.stringify(body),
+                        headers: {
+                            "Content-Type": "application/json",
+                            "x-api-key": apiKey,
+                            "anthropic-version": "2023-06-01",
+                            "accept": "application/json",
+                        },
+                        method: "POST"
+                    })
+
+                    if(res.status !== 200){
+                        return {
+                            type: 'fail',
+                            result: await textifyReadableStream(res.body)
+                        }
+                    }
+
+
+                    const stream = new ReadableStream<StreamResponseChunk>({
+                        async start(controller){
+                            let text = ''
+                            const decoder = new TextDecoder()
+                            const parser = createParser((e) => {
+                                if(e.type === 'event'){
+                                    switch(e.event){
+                                        case 'content_block_delta': {
+                                            if(e.data){
+                                                text += JSON.parse(e.data).delta?.text
+                                                controller.enqueue({
+                                                    "0": text
+                                                })
+                                            }
+                                            break
+                                        }
+        
+                                    }
+                                }
+                                if(e.type === 'reconnect-interval'){
+                                    //TODO: handle reconnect interval
+                                }
+                            })
+                            const reader = res.body.getReader()
+                            while(true){
+                                const {done, value} = await reader.read()
+                                if(done){
+                                    break
+                                }
+                                parser.feed(decoder.decode(value))
+                            }
+                            controller.close()
+                        },
+                        cancel(){
+                        }
+                    })
+
+                    return {
+                        type: 'streaming',
+                        result: stream
+                    }
+
+                }
                 const res = await globalFetch(replacerURL, {
                     body: body,
                     headers: {
