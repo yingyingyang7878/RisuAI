@@ -431,13 +431,13 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
                     let content = card.text
 
                     if(card.type2 === 'globalNote'){
-                        content = (risuChatParser(currentChar.replaceGlobalNote?.replaceAll('{{original}}', content) || content, {chara:currentChar}))
+                        content = (risuChatParser(currentChar.replaceGlobalNote?.replaceAll('{{original}}', content) || content, {chara: currentChar, role: card.role}))
                     }
                     else if(card.type2 === 'main'){
-                        content = (risuChatParser(content, {chara: currentChar}))
+                        content = (risuChatParser(content, {chara: currentChar, role: card.role}))
                     }
                     else{
-                        content = risuChatParser(content, {chara: currentChar})
+                        content = risuChatParser(content, {chara: currentChar, role: card.role})
                     }
 
                     const prompt:OpenAIChat ={
@@ -537,7 +537,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
 
     let index = 0
     for(const msg of ms){
-        let formatedChat = await processScript(nowChatroom,risuChatParser(msg.data, {chara: currentChar, rmVar: true}), 'editprocess')
+        let formatedChat = await processScript(nowChatroom,risuChatParser(msg.data, {chara: currentChar, rmVar: true, role: msg.role}), 'editprocess')
         let name = ''
         if(msg.role === 'char'){
             if(msg.saying){
@@ -802,13 +802,13 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
                     let content = card.text
 
                     if(card.type2 === 'globalNote'){
-                        content = (risuChatParser(currentChar.replaceGlobalNote?.replaceAll('{{original}}', content) || content, {chara:currentChar}))
+                        content = (risuChatParser(currentChar.replaceGlobalNote?.replaceAll('{{original}}', content) || content, {chara:currentChar, role: card.role}))
                     }
                     else if(card.type2 === 'main'){
-                        content = (risuChatParser(content, {chara: currentChar}))
+                        content = (risuChatParser(content, {chara: currentChar, role: card.role}))
                     }
                     else{
-                        content = risuChatParser(content, {chara: currentChar})
+                        content = risuChatParser(content, {chara: currentChar, role: card.role})
                     }
 
                     const prompt:OpenAIChat ={
