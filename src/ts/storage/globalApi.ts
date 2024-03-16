@@ -1370,9 +1370,14 @@ export async function fetchNative(url:string, arg:{
                 headers: JSON.stringify(headers),
                 body: arg.body,
             }).then((res) => {
-                const parsedRes = JSON.parse(res as string)
-                if(!parsedRes.success){
-                    error = parsedRes.body
+                try {
+                    const parsedRes = JSON.parse(res as string)
+                    if(!parsedRes.success){
+                        error = parsedRes.body
+                        resolved = true
+                    }   
+                } catch (error) {
+                    error = JSON.stringify(error)
                     resolved = true
                 }
             })
@@ -1471,5 +1476,19 @@ export function textifyReadableStream(stream:ReadableStream<Uint8Array>){
 }
 
 export function toggleFullscreen(){
-    document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()
+    // @ts-ignore
+    const requestFullscreen = document.documentElement.requestFullscreen ?? document.documentElement.webkitRequestFullscreen as typeof document.documentElement.requestFullscreen
+    // @ts-ignore
+    const exitFullscreen = document.exitFullscreen ?? document.webkitExitFullscreen as typeof document.exitFullscreen
+    // @ts-ignore
+    const fullscreenElement = document.fullscreenElement ?? document.webkitFullscreenElement as typeof document.fullscreenElement
+    fullscreenElement ? exitFullscreen() : requestFullscreen({
+        navigationUI: "hide"
+    })
+}
+
+export function trimNonLatin(data:string){
+    return data .replace(/[^\x00-\x7F]/g, "")
+                .replace(/ +/g, ' ')
+                .trim()
 }
