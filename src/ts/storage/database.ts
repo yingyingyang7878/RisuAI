@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.84.0"
+export let appVer = "1.85.0"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -1135,7 +1135,7 @@ export function setPreset(db:Database, newPres: botPreset){
 
 import { encode as encodeMsgpack, decode as decodeMsgpack } from "msgpackr";
 import * as fflate from "fflate";
-import type { OnnxModelFiles } from '../process/embedding/transformers';
+import type { OnnxModelFiles } from '../process/transformers';
 import type { RisuModule } from '../process/modules';
 
 export async function downloadPreset(id:number){

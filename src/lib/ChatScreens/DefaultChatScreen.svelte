@@ -23,6 +23,7 @@
     import { PreUnreroll, Prereroll } from 'src/ts/process/prereroll';
     import { processMultiCommand } from 'src/ts/process/command';
     import { postChatFile } from 'src/ts/process/files/multisend';
+  import { getInlayImage } from 'src/ts/process/files/image';
 
     let messageInput:string = ''
     let messageInputTranslate:string = ''
@@ -35,6 +36,7 @@
     let doingChatInputTranslate = false
     let currentCharacter:character|groupChat = $CurrentCharacter
     let toggleStickers:boolean = false
+    let fileInput:string[] = []
     export let openModuleList = false
     export let openChatList:boolean = false 
 
@@ -65,6 +67,12 @@
             }
         }
 
+        if(fileInput.length > 0){
+            for(const file of fileInput){
+                messageInput += `{{inlay::${file}}}`
+            }
+            fileInput = []
+        }
 
         if(messageInput === ''){
             if($DataBase.characters[selectedChar].type !== 'group'){
@@ -436,7 +444,7 @@
                     </div>
             </div>
             {#if $DataBase.useAutoTranslateInput}
-                <div class="flex items-center mt-2 mb-2 w-full">
+                <div class="flex items-center mt-2 mb-2">
                     <label for='messageInputTranslate' class="text-textcolor ml-4">
                         <LanguagesIcon />
                     </label>
@@ -460,6 +468,17 @@
                         style:height={inputTranslateHeight}
                     />
                 </div>
+            {/if}
+
+            {#if fileInput.length > 0}
+                <div class="flex items-center ml-4 flex-wrap p-2 m-2 border-darkborderc border rounded-md">
+                    {#each fileInput as file, i}
+                        {#await getInlayImage(file) then inlayImage}
+                            <img src={inlayImage.data} alt="Inlay" class="max-w-24 max-h-24">
+                        {/await}
+                    {/each}
+                </div>
+
             {/if}
             
             {#if toggleStickers}
@@ -641,22 +660,20 @@
                         <span class="ml-2">{language.screenshot}</span>
                     </div>
 
-                    {#if $DataBase.inlayImage}
-                        <div class="flex items-center cursor-pointer hover:text-green-500 transition-colors" on:click={async () => {
-                            const res = await postChatFile(messageInput)
-                            if(res?.type === 'image'){
-                                messageInput += res.data
-                                updateInputSizeAll()
-                            }
-                            if(res?.type === 'text'){
-                                messageInput += `{{file::${res.name}::${res.data}}}`
-                                updateInputSizeAll()
-                            }
-                        }}>
-                            <ImagePlusIcon />
-                            <span class="ml-2">{language.postFile}</span>
-                        </div>
-                    {/if}
+                    <div class="flex items-center cursor-pointer hover:text-green-500 transition-colors" on:click={async () => {
+                        const res = await postChatFile(messageInput)
+                        if(res?.type === 'image'){
+                            fileInput.push(res.data)
+                            updateInputSizeAll()
+                        }
+                        if(res?.type === 'text'){
+                            messageInput += `{{file::${res.name}::${res.data}}}`
+                            updateInputSizeAll()
+                        }
+                    }}>
+                        <ImagePlusIcon />
+                        <span class="ml-2">{language.postFile}</span>
+                    </div>
 
 
                     <div class={"flex items-center cursor-pointer "+ ($DataBase.useAutoSuggestions ? 'text-green-500':'lg:hover:text-green-500')} on:click={async () => {
