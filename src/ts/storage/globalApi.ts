@@ -475,6 +475,7 @@ export async function loadData() {
             updateColorScheme()
             updateTextTheme()
             updateAnimationSpeed()
+            updateHeightMode()
             if(db.botSettingAtStart){
                 botMakerMode.set(true)
             }
@@ -1560,13 +1561,9 @@ export function textifyReadableStream(stream:ReadableStream<Uint8Array>){
 }
 
 export function toggleFullscreen(){
-    // @ts-ignore
-    const requestFullscreen = document.documentElement.requestFullscreen ?? document.documentElement.webkitRequestFullscreen as typeof document.documentElement.requestFullscreen
-    // @ts-ignore
-    const exitFullscreen = document.exitFullscreen ?? document.webkitExitFullscreen as typeof document.exitFullscreen
-    // @ts-ignore
-    const fullscreenElement = document.fullscreenElement ?? document.webkitFullscreenElement as typeof document.fullscreenElement
-    fullscreenElement ? exitFullscreen() : requestFullscreen({
+
+    const fullscreenElement = document.fullscreenElement
+    fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen({
         navigationUI: "hide"
     })
 }
@@ -1575,4 +1572,29 @@ export function trimNonLatin(data:string){
     return data .replace(/[^\x00-\x7F]/g, "")
                 .replace(/ +/g, ' ')
                 .trim()
+}
+
+export function updateHeightMode(){
+    const db = get(DataBase)
+    const root = document.querySelector(':root') as HTMLElement;
+    switch(db.heightMode){
+        case 'auto':
+            root.style.setProperty('--risu-height-size', '100%');
+            break
+        case 'vh':
+            root.style.setProperty('--risu-height-size', '100vh');
+            break
+        case 'dvh':
+            root.style.setProperty('--risu-height-size', '100dvh');
+            break
+        case 'lvh':
+            root.style.setProperty('--risu-height-size', '100lvh');
+            break
+        case 'svh':
+            root.style.setProperty('--risu-height-size', '100svh');
+            break
+        case 'percent':
+            root.style.setProperty('--risu-height-size', '100%');
+            break
+    }
 }

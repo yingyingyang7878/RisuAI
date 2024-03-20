@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.86.1"
+export let appVer = "1.87.0"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -375,6 +375,8 @@ export function setDatabase(data:Database){
     data.memoryLimitThickness ??= 1
     data.modules ??= []
     data.enabledModules ??= []
+    data.additionalParams ??= []
+    data.heightMode ??= 'normal'
 
     changeLanguage(data.language)
     DataBase.set(data)
@@ -600,6 +602,8 @@ export interface Database{
     enabledModules: string[]
     sideMenuRerollButton?:boolean
     requestInfoInsideChat?:boolean
+    additionalParams:[string, string][]
+    heightMode:string
 }
 
 export interface customscript{
