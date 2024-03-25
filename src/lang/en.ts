@@ -456,6 +456,8 @@ export const languageEnglish = {
     translatorType: "Translator Type",
     deeplKey: "deepL API Key",
     deeplFreeKey: "deepL Free API Key",
+    deeplXUrl: "deepLX URL",
+    deeplXToken: "deepLX Token",
     exportPersona: "Export Persona",
     importPersona: "Import Persona",
     export: "Export",
@@ -551,4 +553,6 @@ export const languageEnglish = {
     popularityLevelDesc: "Popularity increases with downloads, etc. to estimate, 3.7 popularity is about 1 downloads.",
     additionalParams: "Additional Parameters",
     heightMode: "Height Mode",
+    useAdvancedEditor: "Use Advanced Editor",
+    noWaitForTranslate: "No Wait for Translate",
 }

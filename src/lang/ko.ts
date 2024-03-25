@@ -394,6 +394,8 @@ export const languageKorean = {
     translatorType: "번역기 타입",
     deeplKey: "deepL API 키",
     deeplFreeKey: "deepL 무료 API 키",
+    deeplXUrl: "deepLX URL",
+    deeplXToken: "deepLX Token",
     exportPersona: "페르소나 엑스포트",
     importPersona: "페르소나 임포트",
     export: "엑스포트",
@@ -432,4 +434,5 @@ export const languageKorean = {
     largePersonaPortrait: "페르소나 세로 이미지",
     module: "모듈",
     modules: "모듈",
+    useAdvancedEditor: "고급 에디터 사용",
 }

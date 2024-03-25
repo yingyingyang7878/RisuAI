@@ -392,6 +392,8 @@ export const LanguageVietnamese = {
     "translatorType": "Loại dịch giả",
     "deeplKey": "Khóa API deepL",
     "deeplFreeKey": "Khóa API miễn phí deepL",
+    "deeplXUrl": "deepLX URL",
+    "deeplXToken": "deepLX Token",
     "exportPersona": "Xuất khẩu nhân vật",
     "importPersona": "Nhập khẩu nhân vật",
     "export": "Xuất khẩu",
@@ -406,4 +408,5 @@ export const LanguageVietnamese = {
     "defaultPrompt": "Lời nhắc mặc định",
     module: "Mô-đun",
     modules: "Mô-đun",
+    useAdvancedEditor: "Sử dụng trình biên tập nâng cao",
 }

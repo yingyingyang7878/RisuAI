@@ -8,6 +8,7 @@ import { doingChat } from "../process"
 import type { simpleCharacterArgument } from "../parser"
 import { selectedCharID } from "../stores"
 import { getModuleRegexScripts } from "../process/modules"
+import { sleep } from "../util"
 
 let cache={
     origin: [''],
@@ -127,6 +128,42 @@ async function translateMain(text:string, arg:{from:string, to:string, host:stri
         return f.data.translations[0].text
 
     }
+    if(db.translatorType === 'deeplX'){
+        if(!db.noWaitForTranslate){
+            if(waitTrans - Date.now() > 0){
+                const waitTime = waitTrans - Date.now()
+                waitTrans = Date.now() + 3000
+                await sleep(waitTime)
+            }
+        }
+
+        let url = db.deeplXOptions.url;
+
+        if(url.endsWith('/')){
+            url = url.slice(0, -1)
+        }
+
+        if(!url.endsWith('/translate')){
+            url += '/translate'
+        }
+
+        let headers = { "Content-Type": "application/json" }
+
+        const body = {text: text, target_lang: arg.to.toLocaleUpperCase(), source_lang: arg.from.toLocaleUpperCase()}
+
+    
+        if(db.deeplXOptions.token.trim() !== '') { headers["Authorization"] = "Bearer " + db.deeplXOptions.token}
+        
+        //Since the DeepLX API is non-CORS restricted, we can use the plain fetch function
+        const f = await globalFetch(url, { method: "POST", headers: headers, body: body, plainFetchForce:true })
+
+        if(!f.ok){ return 'ERR::DeepLX API Error' + (await f.data) }
+
+        const jsonResponse = JSON.stringify(f.data.data)
+        return jsonResponse
+    }
+
+
     const url = `https://${arg.host}/translate_a/single?client=gtx&dt=t&sl=${arg.from}&tl=${arg.to}&q=` + encodeURIComponent(text)
 
 
@@ -171,7 +208,7 @@ async function jaTrans(text:string) {
 
 export function isExpTranslator(){
     const db = get(DataBase)
-    return db.translatorType === 'llm' || db.translatorType === 'deepl'
+    return db.translatorType === 'llm' || db.translatorType === 'deepl' || db.translatorType === 'deeplX'
 }
 
 export async function translateHTML(html: string, reverse:boolean, charArg:simpleCharacterArgument|string = ''): Promise<string> {
@@ -190,9 +227,65 @@ export async function translateHTML(html: string, reverse:boolean, charArg:simpl
     console.log(html)
 
     let promises: Promise<void>[] = [];
+    let translationChunks: {
+        chunks: string[],
+        resolvers: ((text:string) => void)[]
+    }[] = [{
+        chunks: [],
+        resolvers: []
+    }]
+    
+
+    async function translateTranslationChunks(force:boolean = false, additionalChunkLength = 0){
+        const currentChunk = translationChunks[translationChunks.length-1]
+        const text: string = currentChunk.chunks.join('\n■\n')
+
+        console.log(text)
+        if(!force && text.length + additionalChunkLength < 5000){
+            return
+        }
+
+        translationChunks.push({
+            chunks: [],
+            resolvers: []
+        })
+
+        const translated = await translate(text, reverse)
+
+        const split = translated.split('■')
+
+        console.log(split.length, currentChunk.chunks.length)
+
+        if(split.length !== currentChunk.chunks.length){
+            //try translating one by one
+            for(let i = 0; i < currentChunk.chunks.length; i++){
+                currentChunk.resolvers[i](
+                    await translate(currentChunk.chunks[i]
+                , reverse))
+            }
+        }
+        
+        for(let i = 0; i < split.length; i++){
+            console.log(split[i])
+            currentChunk.resolvers[i](split[i])
+        }
+
+
+    }
 
     async function translateNodeText(node:Node) {
         if(node.textContent.trim().length !== 0){
+            if(needSuperChunkedTranslate()){
+                const prm = new Promise<string>((resolve) => {
+                    translateTranslationChunks(false, node.textContent.length)
+                    translationChunks[translationChunks.length-1].resolvers.push(resolve)
+                    translationChunks[translationChunks.length-1].chunks.push(node.textContent)
+                })
+    
+                node.textContent = await prm
+                return
+            }
+
             node.textContent = await translate(node.textContent || '', reverse);
         }
     }
@@ -229,6 +322,8 @@ export async function translateHTML(html: string, reverse:boolean, charArg:simpl
     // Start translation from the body element
     await translateNode(dom.body);
 
+    await translateTranslationChunks(true, 0)
+
     await Promise.all(promises)
     // Serialize the DOM back to HTML
     const serializer = new XMLSerializer();
@@ -262,6 +357,10 @@ export async function translateHTML(html: string, reverse:boolean, charArg:simpl
     // console.log(translatedHTML)
     // Return the translated HTML, excluding the outer <body> tags if needed
     return translatedHTML
+}
+
+function needSuperChunkedTranslate(){
+    return get(DataBase).translatorType === 'deeplX'
 }
 
 let llmCache = new Map<string, string>()

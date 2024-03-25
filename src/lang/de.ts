@@ -421,6 +421,8 @@ export const languageGerman = {
     translatorType: "Übersetzer-Typ",
     deeplKey: "DeepL API-Schlüssel",
     deeplFreeKey: "DeepL Gratis API-Schlüssel",
+    deeplXUrl: "deepLX URL",
+    deeplXToken: "deepLX Token",
     exportPersona: "Profil exportieren",
     importPersona: "Profil importieren",
     export: "Exportieren",
@@ -432,4 +434,5 @@ export const languageGerman = {
     textAdventureNAI: "Als Textabenteuer ausführen",
     appendNameNAI: "Namen an NAI anhängen",
     customStopWords: "Benutzerdefinierte Stoppwörter",
+    useAdvancedEditor: "Erweiterten Editor verwenden",
 }

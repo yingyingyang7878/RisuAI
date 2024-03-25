@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.87.2"
+export let appVer = "1.88.0"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -332,6 +332,10 @@ export function setDatabase(data:Database){
         key:'',
         freeApi: false
     }
+    data.deeplXOptions ??= {
+        url:'',
+        token:''
+    } 
     data.NAIadventure ??= false
     data.NAIappendName ??= true
     data.NAIsettings.cfg_scale ??= 1
@@ -555,12 +559,16 @@ export interface Database{
     mancerHeader:string
     emotionProcesser:'submodel'|'embedding',
     showMenuChatList?:boolean,
-    translatorType:'google'|'deepl'|'none'|'llm',
+    translatorType:'google'|'deepl'|'none'|'llm'|'deeplX',
     NAIadventure?:boolean,
     NAIappendName?:boolean,
     deeplOptions:{
         key:string,
         freeApi:boolean
+    }
+    deeplXOptions:{
+        url:string,
+        token:string    
     }
     localStopStrings?:string[]
     autofillRequestUrl:boolean
@@ -604,6 +612,8 @@ export interface Database{
     requestInfoInsideChat?:boolean
     additionalParams:[string, string][]
     heightMode:string
+    useAdvancedEditor:boolean
+    noWaitForTranslate:boolean
 }
 
 export interface customscript{
@@ -1185,11 +1195,12 @@ export async function importPreset(){
         const decoded = await decodeMsgpack(fflate.decompressSync(f.data))
         console.log(decoded)
         if(decoded.presetVersion === 0 && decoded.type === 'preset'){
-            pre = decodeMsgpack(Buffer.from(await decryptBuffer(decoded.pres, 'risupreset')))
+            pre = {...presetTemplate,...decodeMsgpack(Buffer.from(await decryptBuffer(decoded.pres, 'risupreset')))}
         }
     }
     else{
-        pre = (JSON.parse(Buffer.from(f.data).toString('utf-8')))
+        pre = {...presetTemplate,...(JSON.parse(Buffer.from(f.data).toString('utf-8')))}
+        console.log(pre)
     }
     let db = get(DataBase)
     if(pre.presetVersion && pre.presetVersion >= 3){
@@ -1212,6 +1223,101 @@ export async function importPreset(){
         pr.NAISettings.mirostat_lr = pre.parameters.mirostat_lr
         pr.NAISettings.mirostat_tau = pre.parameters.mirostat_tau
         pr.name = pre.name ?? "Imported"
+        db.botPresets.push(pr)
+        setDatabase(db)
+        return
+    }
+
+    if(Array.isArray(pre?.prompt_order?.[0]?.order) && Array.isArray(pre?.prompts)){
+        //ST preset
+        const pr = cloneDeep(presetTemplate)
+        pr.promptTemplate = []
+
+        function findPrompt(identifier:number){
+            return pre.prompts.find((p:any) => p.identifier === identifier)
+        }
+        pr.temperature = (pre.temperature ?? 0.8) * 100
+        pr.frequencyPenalty = (pre.frequency_penalty ?? 0.7) * 100
+        pr.PresensePenalty = (pre.presence_penalty * 0.7) * 100
+        pr.top_p = pre.top_p ?? 1
+
+        for(const prompt of pre?.prompt_order?.[0]?.order){
+            const p = findPrompt(prompt?.identifier ?? '')
+            if(p){
+                switch(p.identifier){
+                    case 'main':{
+                        pr.promptTemplate.push({
+                            type: 'plain',
+                            type2: 'main',
+                            text: p.content ?? "",
+                            role: p.role ?? "system"
+                        })
+                        break
+                    }
+                    case 'jailbreak':
+                    case 'nsfw':{
+                        pr.promptTemplate.push({
+                            type: 'jailbreak',
+                            type2: 'normal',
+                            text: p.content ?? "",
+                            role: p.role ?? "system"
+                        })
+                        break
+                    }
+                    case 'dialogueExamples':
+                    case 'charPersonality':
+                    case 'scenario':{
+                        break //ignore
+                    }
+                    case 'chatHistory':{
+                        pr.promptTemplate.push({
+                            type: 'chat',
+                            rangeEnd: 'end',
+                            rangeStart: 0
+                        })
+                        break
+                    }
+                    case 'worldInfoBefore':{
+                        pr.promptTemplate.push({
+                            type: 'lorebook'
+                        })
+                        break
+                    }
+                    case 'worldInfoAfter':{
+                        pr.promptTemplate.push({
+                            type: 'postEverything'
+                        })
+                        break
+                    }
+                    case 'charDescription':{
+                        pr.promptTemplate.push({
+                            type: 'description'
+                        })
+                        break
+                    }
+                    case 'personaDescription':{
+                        pr.promptTemplate.push({
+                            type: 'persona'
+                        })
+                        break
+                    }
+                    default:{
+                        console.log(p)
+                        pr.promptTemplate.push({
+                            type: 'plain',
+                            type2: 'normal',
+                            text: p.content ?? "",
+                            role: p.role ?? "system"
+                        })
+                    }
+                }
+            }
+            else{
+                console.log("Prompt not found", prompt)
+            
+            }
+        }
+        pr.name = "Imported ST Preset"
         db.botPresets.push(pr)
         setDatabase(db)
         return
