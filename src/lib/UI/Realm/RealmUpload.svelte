@@ -18,6 +18,9 @@
                 <XIcon />
             </button>
         </h1>
+        {#if char.realmId}
+        <span class="text-textcolor2 text-sm">{language.updateRealmDesc}</span>
+        {/if}
         <div class="mb-2 mt-2 w-full border-t-2 border-t-bgcolor"></div>
         <span class="text-textcolor">{language.creatorNotes}</span>
         <span class="text-textcolor2 text-sm">A description that displays when you search and when you first open a bot.</span>
@@ -41,18 +44,21 @@
         </SelectInput>
 
         {/if}
-        <div class="flex items-center flex-wrap mt-4">
-            <button class="bg-bgcolor p-2 rounded-lg" class:ring-1={!privateMode} on:click={() => {privateMode = false}}>🌏 Show Author ID</button>
-            <button class="bg-bgcolor p-2 rounded-lg ml-2" class:ring-1={privateMode} on:click={() => {privateMode = true}}>🔒 Anonymized</button>
-        </div>
-        <div class="flex items-center flex-wrap mt-2">
-            <button class="bg-bgcolor p-2 rounded-lg" class:ring-1={!nsfwMode} on:click={() => {nsfwMode = false}}>🎖️ Safe</button>
-            <button class="bg-bgcolor p-2 rounded-lg ml-2" class:ring-1={nsfwMode} on:click={() => {nsfwMode = true}}>🔞 NSFW</button>
-        </div>
+        {#if !char.realmId}
+            <div class="flex items-center flex-wrap mt-4">
+                <button class="bg-bgcolor p-2 rounded-lg" class:ring-1={!privateMode} on:click={() => {privateMode = false}}>🌏 Show Author ID</button>
+                <button class="bg-bgcolor p-2 rounded-lg ml-2" class:ring-1={privateMode} on:click={() => {privateMode = true}}>🔒 Anonymized</button>
+            </div>
+            <div class="flex items-center flex-wrap mt-2">
+                <button class="bg-bgcolor p-2 rounded-lg" class:ring-1={!nsfwMode} on:click={() => {nsfwMode = false}}>🎖️ Safe</button>
+                <button class="bg-bgcolor p-2 rounded-lg ml-2" class:ring-1={nsfwMode} on:click={() => {nsfwMode = true}}>🔞 NSFW</button>
+            </div>
+        {/if}
         {#if nsfwMode}
             <span class="text-textcolor2 text-sm">Grotesque Contents and non-adult characters with NSFW would be banned.</span>
         {/if}
         <Button on:click={async () => {
+            await sleep(1) // wait for the input to be updated
             const enNotes = creatorNotes.en
             const latin1 = /^[\x00-\xFF]*$/
             if(enNotes.length < 10){
@@ -61,14 +67,20 @@
             if(!latin1.test(enNotes)){
                 alertError("English version of creator notes must contain only Latin-1 characters")
             }
-            shareRisuHub(char, {
+            shareRisuHub2(char, {
                 anon: privateMode,
                 nsfw: nsfwMode,
                 tag: tags,
                 license: license
             })
             close()
-        }} className="mt-2" size="lg">{language.shareCloud}</Button>
+        }} className="mt-2" size="lg">
+            {#if char.realmId}
+                {language.updateRealm}
+            {:else}
+                {language.shareCloud}
+            {/if}
+        </Button>
         {/if}
 
     </div>
@@ -79,15 +91,15 @@
     import { XIcon } from "lucide-svelte";
     import { language } from "src/lang";
     import { alertError } from "src/ts/alert";
-    import { shareRisuHub } from "src/ts/characterCards";
+    import { shareRisuHub2 } from "src/ts/characterCards";
     import { DataBase, type character } from "src/ts/storage/database";
     import TextInput from "../GUI/TextInput.svelte";
     import Button from "../GUI/Button.svelte";
     import SelectInput from "../GUI/SelectInput.svelte";
     import { CCLicenseData } from "src/ts/creation/license";
     import OptionInput from "../GUI/OptionInput.svelte";
-    import { parseMultilangString } from "src/ts/util";
-  import MultiLangInput from "../GUI/MultiLangInput.svelte";
+    import { parseMultilangString, sleep } from "src/ts/util";
+    import MultiLangInput from "../GUI/MultiLangInput.svelte";
     export let close = () => {}
     export let char:character
     let tags=""
