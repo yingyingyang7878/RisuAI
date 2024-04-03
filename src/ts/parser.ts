@@ -807,6 +807,9 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 case 'abs':{
                     return Math.abs(Number(arra[1])).toString()
                 }
+                case 'remaind':{
+                    return (Number(arra[1]) % Number(arra[2])).toString()
+                }
                 case 'previous_chat_log':{
                     const selchar = db.characters[get(selectedCharID)]
                     const chat = selchar?.chats?.[selchar.chatPage]
@@ -820,6 +823,38 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 }
                 case 'pow':{
                     return Math.pow(Number(arra[1]), Number(arra[2])).toString()
+                }
+                case 'arrayelement':
+                case 'array_element':{
+                    return arra[1].split('§')[Number(arra[2])]
+                }
+                case 'arrayshift':
+                case 'array_shift':{
+                    const arr = arra[1].split('§')
+                    arr.shift()
+                    return arr.join('§')
+                }
+                case 'arraypop':
+                case 'array_pop':{
+                    const arr = arra[1].split('§')
+                    arr.pop()
+                    return arr.join('§')
+                }
+                case 'arraypush':
+                case 'array_push':{
+                    return arra[1] + '§' + arra[2]
+                }
+                case 'arraysplice':
+                case 'array_splice':{
+                    const arr = arra[1].split('§')
+                    arr.splice(Number(arra[2]), Number(arra[3]), arra[4])
+                    return arr.join('§')
+                }
+                case 'makearray':
+                case 'array':
+                case 'a':
+                case 'make_array':{
+                    return arra.slice(1).join('§')
                 }
             }
         }
@@ -872,6 +907,28 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 return 'NaN'
             }
             return (Math.floor(Math.random() * maxRoll) + 1).toString()
+        }
+        if(p1.startsWith('datetimeformat')){
+            const date = new Date()
+            let main = p1.substring("datetimeformat".length + 1)
+            if(!main){
+                return ''
+            }
+            if(main.startsWith(':')){
+                main = main.substring(1)
+            }
+            return main
+                .replace(/YYYY/g, date.getFullYear().toString())
+                .replace(/YY/g, date.getFullYear().toString().substring(2))
+                .replace(/MM?/g, (date.getMonth() + 1).toString().padStart(2, '0'))
+                .replace(/DD?/g, date.getDate().toString().padStart(2, '0'))
+                .replace(/DDDD?/g, (date.getDay() + (date.getMonth() * 30)).toString())
+                .replace(/HH?/g, date.getHours().toString().padStart(2, '0'))
+                .replace(/hh?/g, (date.getHours() % 12).toString().padStart(2, '0'))
+                .replace(/mm?/g, date.getMinutes().toString().padStart(2, '0'))
+                .replace(/ss?/g, date.getSeconds().toString().padStart(2, '0'))
+                .replace(/A/g, date.getHours() >= 12 ? 'PM' : 'AM')
+                .replace(/MMMM?/g, Intl.DateTimeFormat('en', { month: 'long' }).format(date))
         }
         return null        
     } catch (error) {
@@ -945,7 +1002,7 @@ type blockMatch = 'ignore'|'parse'|'nothing'|'parse-pure'
 
 function blockStartMatcher(p1:string,matcherArg:matcherArg):blockMatch{
     if(p1.startsWith('#if') || p1.startsWith('#if_pure ')){
-        const statement = p1.substring(p1.indexOf(' ') + 1)
+        const statement = p1.split(' ', 2)
         const state = statement[1]
         if(state === 'true' || state === '1'){
             return p1.startsWith('#if_pure') ? 'parse-pure' : 'parse'
@@ -1077,6 +1134,7 @@ export function risuChatParser(da:string, arg:{
                     }
                     const matchResult = blockStartMatcher(dat, matcherObj)
                     if(matchResult === 'nothing'){
+                        nested[0] += `{{${dat}}}`
                         break
                     }
                     else{
