@@ -9,7 +9,7 @@ import { get } from 'svelte/store';
 import css from '@adobe/css-tools'
 import { selectedCharID } from './stores';
 import { calcString } from './process/infunctions';
-import { findCharacterbyId } from './util';
+import { findCharacterbyId, sfc32, uuidtoNumber } from './util';
 import { getInlayImage } from './process/files/image';
 import { autoMarkNew } from './plugins/automark';
 import { getModuleLorebooks } from './process/modules';
@@ -405,7 +405,8 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
         const db = matcherArg.db
         const chara = matcherArg.chara
         switch(lowerCased){
-            case 'previous_char_chat':{
+            case 'previous_char_chat':
+            case 'lastcharmessage':{
                 if(chatID !== -1){
                     const selchar = db.characters[get(selectedCharID)]
                     const chat = selchar.chats[selchar.chatPage]
@@ -420,7 +421,8 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 }
                 return ''
             }
-            case 'previous_user_chat':{
+            case 'previous_user_chat':
+            case 'lastusermessage':{
                 if(chatID !== -1){
                     const selchar = db.characters[get(selectedCharID)]
                     const chat = selchar.chats[selchar.chatPage]
@@ -537,7 +539,7 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
             case 'none':{
                 return ''
             }
-            case 'time':{
+            case 'message_time':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -555,7 +557,7 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 //output time in format like 10:30 AM
                 return date.toLocaleTimeString()
             }
-            case 'date':{
+            case 'message_date':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -571,6 +573,22 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 const date = new Date(message.time)
                 //output date in format like Aug 23, 2021
                 return date.toLocaleDateString()
+            }
+            case 'time':{
+                const now = new Date()
+                return `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`
+            }
+            case 'date':{
+                const now = new Date()
+                return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`
+            }
+            case 'isotime':{
+                const now = new Date()
+                return `${now.getUTCHours()}:${now.getUTCMinutes()}:${now.getUTCSeconds()}`
+            }
+            case 'isodate':{
+                const now = new Date()
+                return `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`
             }
             case 'idle_duration':{
                 if(matcherArg.tokenizeAccurate){
@@ -625,7 +643,8 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 //output, like 1:30:00
                 return hours.toString() + ':' + minutes.toString().padStart(2,'0') + ':' + seconds.toString().padStart(2,'0')
             }
-            case 'br':{
+            case 'br':
+            case 'newline':{
                 return '\n'
             }
             case 'model':{
@@ -642,6 +661,26 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
             }
             case 'random':{
                 return Math.random().toString()
+            }
+            case 'maxcontext':{
+                return db.maxContext.toString()
+            }
+            case 'lastmessage':{
+                const selchar = db.characters[get(selectedCharID)]
+                if(!selchar){
+                    return ''
+                }
+                const chat = selchar.chats[selchar.chatPage]
+                return chat.message[chat.message.length - 1].data
+            }
+            case 'lastmessageid':
+            case 'lastmessageindex':{
+                const selchar = db.characters[get(selectedCharID)]
+                if(!selchar){
+                    return ''
+                }
+                const chat = selchar.chats[selchar.chatPage]
+                return chat.message.length - 1
             }
         }
         const arra = p1.split("::")
@@ -779,6 +818,9 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                         return !isNaN(Number(v)) || v === '.'
                     }).join('')
                 }
+                case 'pow':{
+                    return Math.pow(Number(arra[1]), Number(arra[2])).toString()
+                }
             }
         }
         if(p1.startsWith('random')){
@@ -792,6 +834,25 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
             else{
                 const arr = p1.split(/\:|\,/g)
                 const randomIndex = Math.floor(Math.random() * (arr.length - 1)) + 1
+                if(matcherArg.tokenizeAccurate){
+                    return arra[0]
+                }
+                return arr[randomIndex]
+            }
+        }
+        if(p1.startsWith('pick')){
+            const selchar = db.characters[get(selectedCharID)]
+            const rand = sfc32(uuidtoNumber(selchar.chaId), chatID, uuidtoNumber(selchar.chaId), chatID)
+            if(p1.startsWith('pick::')){
+                const randomIndex = Math.floor(rand() * (arra.length - 1)) + 1
+                if(matcherArg.tokenizeAccurate){
+                    return arra[0]
+                }
+                return arra[randomIndex]
+            }
+            else{
+                const arr = p1.split(/\:|\,/g)
+                const randomIndex = Math.floor(rand() * (arr.length - 1)) + 1
                 if(matcherArg.tokenizeAccurate){
                     return arra[0]
                 }
@@ -879,15 +940,15 @@ const legacyBlockMatcher = (p1:string,matcherArg:matcherArg) => {
     return null
 }
 
-type blockMatch = 'ignore'|'parse'|'nothing'
+type blockMatch = 'ignore'|'parse'|'nothing'|'parse-pure'
 
 
 function blockStartMatcher(p1:string,matcherArg:matcherArg):blockMatch{
-    if(p1.startsWith('#if')){
-        const statement = p1.split(" ", 2)
+    if(p1.startsWith('#if') || p1.startsWith('#if_pure ')){
+        const statement = p1.substring(p1.indexOf(' ') + 1)
         const state = statement[1]
         if(state === 'true' || state === '1'){
-            return 'parse'
+            return p1.startsWith('#if_pure') ? 'parse-pure' : 'parse'
         }
         return 'ignore'
     }
@@ -895,14 +956,23 @@ function blockStartMatcher(p1:string,matcherArg:matcherArg):blockMatch{
 }
 
 function blockEndMatcher(p1:string,type:blockMatch,matcherArg:matcherArg):string{
-    if(type === 'ignore'){
-        return ''
+    switch(type){
+        case 'ignore':{
+            return ''
+        }
+        case 'parse':{
+            const trimedLines = p1.split('\n').map((v) => {
+                return v.trim()
+            }).join('\n').trim()
+            return trimedLines
+        }
+        case 'parse-pure':{
+            return p1
+        }
+        default:{
+            return ''
+        }
     }
-    if(type === 'parse'){
-        return p1
-
-    }
-    return ''
 }
 
 export function risuChatParser(da:string, arg:{
