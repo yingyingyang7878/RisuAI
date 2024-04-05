@@ -524,7 +524,7 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 const selchar = db.characters[get(selectedCharID)]
                 const chat = selchar.chats[selchar.chatPage]
                 return chat.message.map((f) => {
-                    return JSON.stringify(f)
+                    return f.role + ': ' + f.data
                 }).join("§\n")
             }
             case 'ujb':
@@ -681,6 +681,24 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 }
                 const chat = selchar.chats[selchar.chatPage]
                 return chat.message.length - 1
+            }
+            case 'emotionlist':{
+                const selchar = db.characters[get(selectedCharID)]
+                if(!selchar){
+                    return ''
+                }
+                return selchar.emotionImages?.map((f) => {
+                    return f[0]
+                })?.join('§') ?? ''
+            }
+            case 'assetlist':{
+                const selchar = db.characters[get(selectedCharID)]
+                if(!selchar || selchar.type === 'group'){
+                    return ''
+                }
+                return selchar.additionalAssets?.map((f) => {
+                    return f[0]
+                })?.join('§') ?? ''
             }
         }
         const arra = p1.split("::")
@@ -856,6 +874,33 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 case 'make_array':{
                     return arra.slice(1).join('§')
                 }
+                case 'history':
+                case 'messages':{
+                    const selchar = db.characters[get(selectedCharID)]
+                    const chat = selchar.chats[selchar.chatPage]
+                    return chat.message.map((f) => {
+                        let data = ''
+                        if(arra.includes('role')){
+                            data += f.role + ': '
+                        }
+                        data += f.data
+                        return data
+                    }).join("§\n")
+                }
+                case 'range':{
+                    const arr = arra[1].split('§')
+                    const start = arr.length > 1 ? Number(arr[0]) : 0
+                    const end = arr.length > 1 ? Number(arr[1]) : Number(arr[0])
+                    const step = arr.length > 2 ? Number(arr[2]) : 1
+                    let out = ''
+                    for(let i=start;i<end;i+=step){
+                        out += i.toString()
+                        if(i + step < end){
+                            out += '§'
+                        }
+                    }
+                    return out
+                }
             }
         }
         if(p1.startsWith('random')){
@@ -997,34 +1042,42 @@ const legacyBlockMatcher = (p1:string,matcherArg:matcherArg) => {
     return null
 }
 
-type blockMatch = 'ignore'|'parse'|'nothing'|'parse-pure'
+type blockMatch = 'ignore'|'parse'|'nothing'|'parse-pure'|'pure'|'each'
 
 
-function blockStartMatcher(p1:string,matcherArg:matcherArg):blockMatch{
+function blockStartMatcher(p1:string,matcherArg:matcherArg):{type:blockMatch,type2?:string}{
     if(p1.startsWith('#if') || p1.startsWith('#if_pure ')){
         const statement = p1.split(' ', 2)
         const state = statement[1]
         if(state === 'true' || state === '1'){
-            return p1.startsWith('#if_pure') ? 'parse-pure' : 'parse'
+            return {type:p1.startsWith('#if_pure') ? 'parse-pure' : 'parse'}
         }
-        return 'ignore'
+        return {type:'ignore'}
     }
-    return 'nothing'
+    if(p1 === '#pure'){
+        return {type:'pure'}
+    }
+    if(p1.startsWith('#each')){
+        return {type:'each',type2:p1.substring(5).trim()}
+    }
+    return {type:'nothing'}
 }
 
-function blockEndMatcher(p1:string,type:blockMatch,matcherArg:matcherArg):string{
-    switch(type){
-        case 'ignore':{
-            return ''
-        }
-        case 'parse':{
-            const trimedLines = p1.split('\n').map((v) => {
-                return v.trim()
-            }).join('\n').trim()
-            return trimedLines
-        }
+function trimLines(p1:string){
+    return p1.split('\n').map((v) => {
+        return v.trimStart()
+    }).join('\n').trim()
+}
+
+function blockEndMatcher(p1:string,type:{type:blockMatch,type2?:string},matcherArg:matcherArg):string{
+    switch(type.type){
+        case 'pure':
         case 'parse-pure':{
             return p1
+        }
+        case 'parse':
+        case 'each':{
+            return trimLines(p1)
         }
         default:{
             return ''
@@ -1073,9 +1126,9 @@ export function risuChatParser(da:string, arg:{
     let pointer = 0;
     let nested:string[] = [""]
     let stackType = new Uint8Array(512)
-    let pureMode = false
-    let pureModeType:''|'pureSyntax'|'block' = ''
-    let blockType:blockMatch = 'nothing'
+    let pureModeNest:Map<number,boolean> = new Map()
+    let pureModeNestType:Map<number,string> = new Map()
+    let blockNestType:Map<number,{type:blockMatch,type2?:string}> = new Map()
     let commentMode = false
     let commentLatest:string[] = [""]
     let commentV = new Uint8Array(512)
@@ -1091,7 +1144,17 @@ export function risuChatParser(da:string, arg:{
         role: arg.role,
         runVar: arg.runVar ?? false,
     }
-    let pef = performance.now()
+
+
+    const isPureMode = () => {
+        return pureModeNest.size > 0
+    }
+    const pureModeType = () => {
+        if(pureModeNest.size === 0){
+            return ''
+        }
+        return pureModeNestType.get(nested.length) ?? [...pureModeNestType.values()].at(-1) ?? ''
+    }
     while(pointer < da.length){
         switch(da[pointer]){
             case '{':{
@@ -1129,42 +1192,64 @@ export function risuChatParser(da:string, arg:{
                 pointer++
                 const dat = nested.shift()
                 if(dat.startsWith('#')){
-                    if(pureMode){
+                    if(isPureMode()){
                         nested[0] += `{{${dat}}}`
+                        nested.unshift('')
+                        stackType[nested.length] = 6
+                        break
                     }
                     const matchResult = blockStartMatcher(dat, matcherObj)
-                    if(matchResult === 'nothing'){
+                    if(matchResult.type === 'nothing'){
                         nested[0] += `{{${dat}}}`
                         break
                     }
                     else{
-                        if(matchResult !== 'parse'){
-                            pureMode = true
-                            pureModeType = 'block'
-                        }
-                        blockType = matchResult
                         nested.unshift('')
                         stackType[nested.length] = 5
+                        blockNestType.set(nested.length, matchResult)
+                        if(matchResult.type === 'ignore' || matchResult.type === 'pure' || matchResult.type === 'each'){
+                            pureModeNest.set(nested.length, true)
+                            pureModeNestType.set(nested.length, "block")
+                        }
                         break
                     }
                 }
                 if(dat.startsWith('/')){
                     if(stackType[nested.length] === 5){
-                        const dat2 = nested.shift()
-                        if(pureMode && pureModeType === 'block'){
-                            pureMode = false
-                            pureModeType = ''
+                        const blockType = blockNestType.get(nested.length)
+                        if(blockType.type === 'ignore' || blockType.type === 'pure' || blockType.type === 'each'){
+                            pureModeNest.delete(nested.length)
+                            pureModeNestType.delete(nested.length)
                         }
+                        blockNestType.delete(nested.length)
+                        const dat2 = nested.shift()
                         const matchResult = blockEndMatcher(dat2.trim(), blockType, matcherObj)
+                        if(blockType.type === 'each'){
+                            const subind = blockType.type2.lastIndexOf(' ')
+                            const sub = blockType.type2.substring(subind + 1)
+                            const array = blockType.type2.substring(0, subind).split('§')
+                            let added = ''
+                            for(let i = 0;i < array.length;i++){
+                                const res = matchResult.replaceAll(`{{slot::${sub}}}`, array[i])
+                                added += res
+                            }
+                            da = da.substring(0, pointer + 1) + added.trim() + da.substring(pointer + 1)
+                            break
+                        }
                         if(matchResult === ''){
                             break
                         }
                         nested[0] += matchResult
-                        blockType = 'nothing'
+                        break
+                    }
+                    if(stackType[nested.length] === 6){
+                        console.log(dat)
+                        const sft = nested.shift()
+                        nested[0] += sft + `{{${dat}}}`
                         break
                     }
                 }
-                const mc = (pureMode) ? null :matcher(dat, matcherObj)
+                const mc = isPureMode() ? null :matcher(dat, matcherObj)
                 nested[0] += mc ?? `{{${dat}}}`
                 break
             }
@@ -1173,26 +1258,11 @@ export function risuChatParser(da:string, arg:{
                     break
                 }
                 const dat = nested.shift()
-                if(pureMode && pureModeType !== 'pureSyntax' && pureModeType !== ''){
+                if(isPureMode() && pureModeType() !== 'pureSyntax' && pureModeType() !== ''){
                     nested[0] += `<${dat}>`
                     break
                 }
                 switch(dat){
-                    case 'Pure':{
-                        pureMode = true
-                        pureModeType = 'pureSyntax'
-                        break
-                    }
-                    case '/Pure':{
-                        if(pureModeType === 'pureSyntax'){
-                            pureMode = false
-                            pureModeType = ''
-                        }
-                        else{
-                            nested[0] += `<${dat}>`
-                            break
-                        }
-                    }
                     case 'Comment':{
                         if(arg.runVar){
                             break
@@ -1245,7 +1315,7 @@ export function risuChatParser(da:string, arg:{
                         break
                     }
                     default:{
-                        const mc = (pureMode) ? null : smMatcher(dat, matcherObj)
+                        const mc = isPureMode() ? null : smMatcher(dat, matcherObj)
                         nested[0] += mc ?? `<${dat}>`
                         break
                     }
