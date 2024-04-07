@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.93.2"
+export let appVer = "1.93.3"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -873,6 +873,7 @@ export interface Chat{
     isStreaming?:boolean
     scriptstate?:{[key:string]:string|number|boolean}
     modules?:string[]
+    id?:string
 }
 
 export interface Message{
