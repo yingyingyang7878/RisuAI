@@ -11,7 +11,7 @@ import { checkUpdate } from "../update";
 import { botMakerMode, selectedCharID } from "../stores";
 import { Body, ResponseType, fetch as TauriFetch } from "@tauri-apps/api/http";
 import { loadPlugins } from "../plugins/plugins";
-import { alertConfirm, alertError, alertNormal } from "../alert";
+import { alertConfirm, alertError, alertNormal, alertNormalWait } from "../alert";
 import { checkDriverInit, syncDrive } from "../drive/drive";
 import { hasher } from "../parser";
 import { characterURLImport, hubURL } from "../characterCards";
@@ -29,6 +29,7 @@ import { save } from "@tauri-apps/api/dialog";
 import type { RisuModule } from "../process/modules";
 import { listen } from '@tauri-apps/api/event'
 import { registerPlugin } from '@capacitor/core';
+import { language } from "src/lang";
 
 //@ts-ignore
 export const isTauri = !!window.__TAURI__
@@ -258,10 +259,29 @@ export async function saveDb(){
     DataBase.subscribe(() => {
         changed = true
     })
+    let gotChannel = false
+    const sessionID = v4()
+    const channel = new BroadcastChannel('risu-save-channel')
+    channel.onmessage = async (ev) => {
+        if(ev.data === sessionID){
+            return
+        }
+        if(!gotChannel){
+            gotChannel = true
+            await alertNormalWait(language.activeTabChange)
+            gotChannel = false
+        }
+    }
     let savetrys = 0
     while(true){
         try {
             if(changed){
+                if(gotChannel){
+                    //Data is saved in other tab
+                    await sleep(1000)
+                    continue
+                }
+                channel.postMessage(sessionID)
                 changed = false
                 let db = get(DataBase)
                 db.saveTime = Math.floor(Date.now() / 1000)
