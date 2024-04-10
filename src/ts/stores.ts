@@ -39,6 +39,7 @@ export const CurrentShowMemoryLimit = writable(db.showMemoryLimit)
 export const ShowVN = writable(false)
 export const SettingsMenuIndex = writable(-1)
 export const CurrentVariablePointer = writable({} as {[key:string]: string|number|boolean})
+export const OpenRealmStore = writable(false)
 
 function createSimpleCharacter(char:character|groupChat){
     if((!char) || char.type === 'group'){
@@ -150,7 +151,6 @@ CurrentChat.subscribe((chat) => {
 
     if(!isEqual(variablePointer, currentState)){
         CurrentVariablePointer.set(currentState)
-        console.log(currentState)
     }
 })
 

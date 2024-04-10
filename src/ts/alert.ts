@@ -6,7 +6,7 @@ import { Capacitor } from "@capacitor/core"
 import { DataBase, type MessageGenerationInfo } from "./storage/database"
 
 interface alertData{
-    type: 'error'| 'normal'|'none'|'ask'|'wait'|'selectChar'|'input'|'toast'|'wait2'|'markdown'|'select'|'login'|'tos'|'cardexport'|'requestdata'
+    type: 'error'| 'normal'|'none'|'ask'|'wait'|'selectChar'|'input'|'toast'|'wait2'|'markdown'|'select'|'login'|'tos'|'cardexport'|'requestdata'|'addchar'
     msg: string,
     submsg?: string
 }
@@ -16,7 +16,11 @@ export const alertStore = writable({
     type: 'none',
     msg: 'n',
 } as alertData)
-export const alertGenerationInfoStore = writable<MessageGenerationInfo>(null)
+type AlertGenerationInfoStoreData = {
+    genInfo: MessageGenerationInfo,
+    idx: number
+}
+export const alertGenerationInfoStore = writable<AlertGenerationInfoStoreData>(null)
 
 export function alertError(msg:string){
     console.error(msg)
@@ -55,6 +59,21 @@ export async function alertNormalWait(msg:string){
         }
         await sleep(10)
     }
+}
+
+export async function alertAddCharacter() {
+    alertStore.set({
+        'type': 'addchar',
+        'msg': language.addCharacter
+    })
+    while(true){
+        if (get(alertStore).type === 'none'){
+            break
+        }
+        await sleep(10)
+    }
+
+    return get(alertStore).msg
 }
 
 export async function alertLogin(){
@@ -232,10 +251,10 @@ export async function alertInput(msg:string){
     return get(alertStore).msg
 }
 
-export function alertRequestData(info:MessageGenerationInfo){
+export function alertRequestData(info:AlertGenerationInfoStoreData){
     alertGenerationInfoStore.set(info)
     alertStore.set({
         'type': 'requestdata',
-        'msg': info.generationId ?? 'none'
+        'msg': info.genInfo.generationId ?? 'none'
     })
 }

@@ -151,29 +151,29 @@ export async function supaMemory(
                         value = value.replace(/[\.,\/#!$%\^&\*;:{}=\-_`~()]/g,"")
                     }
                     return value
+                }).filter((v) => {
+                    return !supaMemory.replace(/[\.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").includes(v.replace(/[\.,\/#!$%\^&\*;:{}=\-_`~()]/g,""))
                 }))
                 const filteredChat = chats.filter((r) => r.role !== 'system' && r.role !== 'function')
                 const s = await hypa.similaritySearch(stringlizeChat(filteredChat.slice(0, 4), char?.name ?? '', false))
-                hypaResult = "past events: " + s.slice(0,3).join("\n")
-                currentTokens += await tokenizer.tokenizeChat({
-                    role: "assistant",
-                    content: hypaResult,
-                    memo: "hypaMemory"
-                })
-                currentTokens += 10
+                hypaResult = ''
+                if(s.length > 0){
+                    hypaResult = "past events: " + s.slice(0,3)
+                    currentTokens += await tokenizer.tokenizeChat({
+                        role: "assistant",
+                        content: hypaResult,
+                        memo: "hypaMemory"
+                    })
+                    currentTokens += 10
+                }
             }
         }
 
         if(currentTokens < maxContextTokens){
             chats.unshift({
                 role: "system",
-                content: supaMemory,
+                content: supaMemory + '\n\n' + hypaResult,
                 memo: "supaMemory"
-            })
-            chats.unshift({
-                role: "system",
-                content: hypaResult,
-                memo: "hypaMemory"
             })
             return {
                 currentTokens: currentTokens,
@@ -229,7 +229,7 @@ export async function supaMemory(
                         return {
                             currentTokens: currentTokens,
                             chats: chats,
-                            error: "SupaMemory: HTTP: " + await da.data
+                            error: "SupaMemory: HTTP: " + JSON.stringify(da.data)
                         }
                     }
         
@@ -239,7 +239,7 @@ export async function supaMemory(
                         return {
                             currentTokens: currentTokens,
                             chats: chats,
-                            error: "SupaMemory: HTTP: " + await da.data
+                            error: "SupaMemory: HTTP: " + JSON.stringify(da.data)
                         }
                     }
 
@@ -313,10 +313,8 @@ export async function supaMemory(
                             return result
                         }
 
-                        console.log(currentTokens)
                         currentTokens -= await tokenize(supaMemory)
                         currentTokens += await tokenize(result + '\n\n')
-                        console.log(currentTokens)
 
                         supaMemory = result + '\n\n'
                         summarized = true

@@ -52,11 +52,12 @@ export interface OpenAIChatFull extends OpenAIChat{
 }
 
 export const doingChat = writable(false)
+export const chatProcessStage = writable(0)
 export const abortChat = writable(false)
 
 export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:number,signal?:AbortSignal,continue?:boolean} = {}):Promise<boolean> {
 
-
+    chatProcessStage.set(0)
     const abortSignal = arg.signal ?? (new AbortController()).signal
 
     let isAborted = false
@@ -101,6 +102,13 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
     let db = get(DataBase)
     let selectedChar = get(selectedCharID)
     const nowChatroom = db.characters[selectedChar]
+    let selectedChat = nowChatroom.chatPage
+    nowChatroom.chats[nowChatroom.chatPage].message = nowChatroom.chats[nowChatroom.chatPage].message.map((v) => {
+        v.chatId = v.chatId ?? v4()
+        return v
+    })
+    
+
     let currentChar:character
     let caculatedChatTokens = 0
     if(db.aiModel.startsWith('gpt')){
@@ -158,7 +166,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
 
     let chatAdditonalTokens = arg.chatAdditonalTokens ?? caculatedChatTokens
     const tokenizer = new ChatTokenizer(chatAdditonalTokens, db.aiModel.startsWith('gpt') ? 'noName' : 'name')
-    let selectedChat = nowChatroom.chatPage
     let currentChat = runCurrentChatFunction(nowChatroom.chats[selectedChat])
     nowChatroom.chats[selectedChat] = currentChat
     let maxContextTokens = db.maxContext
@@ -185,6 +192,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
     }
 
 
+    chatProcessStage.set(1)
     let unformated = {
         'main':([] as OpenAIChat[]),
         'jailbreak':([] as OpenAIChat[]),
@@ -518,7 +526,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
 
     let chats:OpenAIChat[] = examples
 
-    console.log(db.aiModel)
     if(!db.aiModel.startsWith('novelai')){
         chats.push({
             role: 'system',
@@ -641,8 +648,9 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
     }
 
     if(nowChatroom.supaMemory && db.supaMemoryType !== 'none'){
+        chatProcessStage.set(2)
         const sp = await supaMemory(chats, currentTokens, maxContextTokens, currentChat, nowChatroom, tokenizer, {
-            asHyper: db.supaMemoryType !== 'subModel' && db.hypaMemory
+            asHyper: db.hypaMemory
         })
         if(sp.error){
             alertError(sp.error)
@@ -651,7 +659,11 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
         chats = sp.chats
         currentTokens = sp.currentTokens
         currentChat.supaMemoryData = sp.memory ?? currentChat.supaMemoryData
+        db.characters[selectedChar].chats[selectedChat].supaMemoryData = currentChat.supaMemoryData
+        console.log(currentChat.supaMemoryData)
+        DataBase.set(db)
         currentChat.lastMemory = sp.lastId ?? currentChat.lastMemory
+        chatProcessStage.set(1)
     }
     else{
         while(currentTokens > maxContextTokens){
@@ -961,6 +973,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
         outputTokens: outputTokens,
         maxContext: maxContextTokens,
     }
+    chatProcessStage.set(3)
     const req = await requestChatData({
         formated: formated,
         biasString: biases,
@@ -1027,7 +1040,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
             }   
         }
 
-        console.log(lastResponseChunk)
         addRerolls(generationId, Object.values(lastResponseChunk))
 
         db.characters[selectedChar].chats[selectedChat] = runCurrentChatFunction(db.characters[selectedChar].chats[selectedChat])
@@ -1120,6 +1132,8 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
         }
     }
 
+    chatProcessStage.set(4)
+
     sendPeerChar()
 
     if(req.special){
@@ -1194,8 +1208,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
                 }).map((v) => {
                     return v[0]
                 })
-
-                console.log(searched)
 
                 for(const emo of currentEmotion){
                     if(emo[0] === emoresult[0]){

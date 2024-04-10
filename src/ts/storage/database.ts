@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.94.1"
+export let appVer = "1.95.0"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -732,6 +732,7 @@ export interface character{
     },
     vits?: OnnxModelFiles
     realmId?:string
+    imported?:boolean
 }
 
 
