@@ -493,7 +493,7 @@
             }
         }}><PlusIcon /></button>
 
-        <span class="text-textcolor mt-4">{language.triggerScript} <Help key="regexScript"/></span>
+        <span class="text-textcolor mt-4">{language.triggerScript} <Help key="triggerScript"/></span>
         <TriggerList bind:value={currentChar.data.triggerscript} />
         <button class="font-medium cursor-pointer hover:text-green-500 mb-2" on:click={() => {
             if(currentChar.type === 'character'){
@@ -508,8 +508,10 @@
             }
         }}><PlusIcon /></button>
 
-        <span class="text-textcolor mt-4">{language.charjs} <Help key="charjs"/></span>
-        <TextAreaInput margin="both" autocomplete="off" bind:value={currentChar.data.virtualscript}></TextAreaInput>
+        {#if currentChar.data.virtualscript || $DataBase.showUnrecommended}
+            <span class="text-textcolor mt-4">{language.charjs} <Help key="charjs" unrecommended/></span>
+            <TextAreaInput margin="both" autocomplete="off" bind:value={currentChar.data.virtualscript}></TextAreaInput>
+        {/if}
     {/if}
 {:else if subMenu === 5}
     {#if currentChar.type === 'character'}

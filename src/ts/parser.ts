@@ -196,7 +196,7 @@ export async function ParseMarkdown(data:string, charArg:(character|simpleCharac
     if(db.automark){
         return (DOMPurify.sanitize(autoMarkNew(data), {
             ADD_TAGS: ["iframe", "style", "risu-style", "x-em"],
-            ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "risu-btn"],
+            ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "risu-btn", 'risu-trigger'],
         }))
     }
     else{
@@ -204,7 +204,7 @@ export async function ParseMarkdown(data:string, charArg:(character|simpleCharac
         data = mconverted.parse(data)
         return decodeStyle(DOMPurify.sanitize(data, {
             ADD_TAGS: ["iframe", "style", "risu-style", "x-em"],
-            ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "risu-btn"],
+            ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "risu-btn", 'risu-trigger'],
         }))
     }
 }
@@ -732,7 +732,7 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                     return null
                 }
                 case 'button':{
-                    return `<button style="padding" x-risu-prompt="${arra[2]}">${arra[1]}</button>`
+                    return `<button class="button-default" risu-trigger="${arra[2]}">${arra[1]}</button>`
                 }
                 case 'risu':{
                     return `<img src="/logo2.png" style="height:${v || 45}px;width:${v || 45}px" />`
