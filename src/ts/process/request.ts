@@ -469,8 +469,16 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
 
             if(supportsInlayImage()){
                 // inlay models doesn't support logit_bias
-                // @ts-ignore
-                delete body.logit_bias
+                // gpt-4-turbo supports both logit_bias and inlay image
+                if(!(
+                    aiModel.startsWith('gpt4_turbo') || 
+                    (aiModel == 'reverse_proxy' && (
+                        db.proxyRequestModel?.startsWith('gpt4_turbo') ||
+                        (db.proxyRequestModel === 'custom' && db.customProxyRequestModel.startsWith('gpt-4-turbo'))
+                    )))){
+                    // @ts-ignore
+                    delete body.logit_bias
+                }
             }
 
             let replacerURL = aiModel === 'openrouter' ? "https://openrouter.ai/api/v1/chat/completions" :
@@ -1108,6 +1116,7 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
         }
         case 'gemini-pro':
         case 'gemini-pro-vision':
+        case 'gemini-1.5-pro-latest':
         case 'gemini-ultra':
         case 'gemini-ultra-vision':{
             interface GeminiPart{
@@ -1701,9 +1710,10 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
                       "anthropic.claude-v2:1",
                       "anthropic.claude-3-haiku-20240307-v1:0",
                       "anthropic.claude-3-sonnet-20240229-v1:0",
+                      "anthropic.claude-3-opus-20240229-v1:0"
                     ];
                     
-                    const awsModel = raiModel.includes("haiku") ? modelIDs[2] : modelIDs[3];
+                    const awsModel = raiModel.includes("opus") ? modelIDs[4] : raiModel.includes("sonnet") ? modelIDs[3] : modelIDs[2];
                     const url = `https://${host}/model/${awsModel}/invoke${stream ? "-with-response-stream" : ""}`
 
                     const params = {
@@ -1796,64 +1806,66 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
                             let reader = res.body.getReader()
                             const decoder = new TextDecoder()
                             const parser = createParser(async (e) => {
-                                if(e.type === 'event'){
-                                    switch(e.event){
-                                        case 'content_block_delta': {
-                                            if(e.data){
-                                                text += JSON.parse(e.data).delta?.text
-                                                controller.enqueue({
-                                                    "0": text
-                                                })
-                                            }
-                                            break
-                                        }
-                                        case 'error': {
-                                            if(e.data){
-                                                const errormsg:string = JSON.parse(e.data).error?.message
-                                                if(errormsg && errormsg.toLocaleLowerCase().includes('overload') && db.antiClaudeOverload){
-                                                    console.log('Overload detected, retrying...')
-                                                    reader.cancel()
-                                                    rerequesting = true
-                                                    await sleep(2000)
-                                                    body.max_tokens -= await tokenize(text)
-                                                    if(body.max_tokens < 0){
-                                                        body.max_tokens = 0
-                                                    }
-                                                    if(body.messages.at(-1)?.role !== 'assistant'){
-                                                        body.messages.push({
-                                                            role: 'assistant',
-                                                            content: ''
-                                                        })
-                                                    }
-                                                    body.messages[body.messages.length-1].content += text
-                                                    const res = await fetchNative(replacerURL, {
-                                                        body: JSON.stringify(body),
-                                                        headers: {
-                                                            "Content-Type": "application/json",
-                                                            "x-api-key": apiKey,
-                                                            "anthropic-version": "2023-06-01",
-                                                            "accept": "application/json",
-                                                        },
-                                                        method: "POST",
-                                                        chatId: arg.chatId
+                                try {               
+                                    if(e.type === 'event'){
+                                        switch(e.event){
+                                            case 'content_block_delta': {
+                                                if(e.data){
+                                                    text += JSON.parse(e.data).delta?.text
+                                                    controller.enqueue({
+                                                        "0": text
                                                     })
-                                                    if(res.status !== 200){
-                                                        breakError = 'Error: ' + await textifyReadableStream(res.body)
+                                                }
+                                                break
+                                            }
+                                            case 'error': {
+                                                if(e.data){
+                                                    const errormsg:string = JSON.parse(e.data).error?.message
+                                                    if(errormsg && errormsg.toLocaleLowerCase().includes('overload') && db.antiClaudeOverload){
+                                                        console.log('Overload detected, retrying...')
+                                                        reader.cancel()
+                                                        rerequesting = true
+                                                        await sleep(2000)
+                                                        body.max_tokens -= await tokenize(text)
+                                                        if(body.max_tokens < 0){
+                                                            body.max_tokens = 0
+                                                        }
+                                                        if(body.messages.at(-1)?.role !== 'assistant'){
+                                                            body.messages.push({
+                                                                role: 'assistant',
+                                                                content: ''
+                                                            })
+                                                        }
+                                                        body.messages[body.messages.length-1].content += text
+                                                        const res = await fetchNative(replacerURL, {
+                                                            body: JSON.stringify(body),
+                                                            headers: {
+                                                                "Content-Type": "application/json",
+                                                                "x-api-key": apiKey,
+                                                                "anthropic-version": "2023-06-01",
+                                                                "accept": "application/json",
+                                                            },
+                                                            method: "POST",
+                                                            chatId: arg.chatId
+                                                        })
+                                                        if(res.status !== 200){
+                                                            breakError = 'Error: ' + await textifyReadableStream(res.body)
+                                                            break
+                                                        }
+                                                        reader = res.body.getReader()
+                                                        rerequesting = false
                                                         break
                                                     }
-                                                    reader = res.body.getReader()
-                                                    rerequesting = false
-                                                    break
+                                                    text += "Error:" + JSON.parse(e.data).error?.message
+                                                    controller.enqueue({
+                                                        "0": text
+                                                    })
                                                 }
-                                                text += "Error:" + JSON.parse(e.data).error?.message
-                                                controller.enqueue({
-                                                    "0": text
-                                                })
+                                                break
                                             }
-                                            break
                                         }
                                     }
-                                }
+                                } catch (error) {}
                             })
                             while(true){
                                 if(rerequesting){
@@ -1915,10 +1927,16 @@ export async function requestChatDataMain(arg:requestDataArgument, model:'model'
                         result: JSON.stringify(res.data.error)
                     }
                 }
+                const resText = res?.data?.content?.[0]?.text
+                if(!resText){
+                    return {
+                        type: 'fail',
+                        result: JSON.stringify(res.data)
+                    }
+                }
                 return {
                     type: 'success',
-                    result: res.data.content[0].text
-                
+                    result: resText
                 }
             }
             else if(raiModel.startsWith('claude')){
