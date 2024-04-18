@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.95.3"
+export let appVer = "1.95.4"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -1253,6 +1253,9 @@ export async function importPreset(){
         pr.top_p = pre.top_p ?? 1
 
         for(const prompt of pre?.prompt_order?.[0]?.order){
+            if(!prompt?.enabled){
+                continue
+            }
             const p = findPrompt(prompt?.identifier ?? '')
             if(p){
                 switch(p.identifier){
@@ -1295,9 +1298,6 @@ export async function importPreset(){
                         break
                     }
                     case 'worldInfoAfter':{
-                        pr.promptTemplate.push({
-                            type: 'postEverything'
-                        })
                         break
                     }
                     case 'charDescription':{
@@ -1327,6 +1327,17 @@ export async function importPreset(){
                 console.log("Prompt not found", prompt)
             
             }
+        }
+        if(pre?.assistant_prefill){
+            pr.promptTemplate.push({
+                type: 'postEverything'
+            })
+            pr.promptTemplate.push({
+                type: 'plain',
+                type2: 'main',
+                text: `{{#if {{prefill_supported}}}}${pre?.assistant_prefill}{{/if}}`,
+                role: 'bot'
+            })
         }
         pr.name = "Imported ST Preset"
         db.botPresets.push(pr)
