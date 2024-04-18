@@ -55,7 +55,7 @@ export const doingChat = writable(false)
 export const chatProcessStage = writable(0)
 export const abortChat = writable(false)
 
-export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:number,signal?:AbortSignal,continue?:boolean} = {}):Promise<boolean> {
+export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:number,signal?:AbortSignal,continue?:boolean,usedContinueTokens?:number} = {}):Promise<boolean> {
 
     chatProcessStage.set(0)
     const abortSignal = arg.signal ?? (new AbortController()).signal
@@ -1132,12 +1132,40 @@ export async function sendChat(chatProcessIndex = -1,arg:{chatAdditonalTokens?:n
         }
     }
 
-    if(db.autoContinueMinTokens > 0 && (await tokenize(result)) < db.autoContinueMinTokens){
+    let needsAutoContinue = false
+    const resultTokens = await tokenize(result) + (arg.usedContinueTokens || 0)
+    if(db.autoContinueMinTokens > 0 && resultTokens < db.autoContinueMinTokens){
+        needsAutoContinue = true
+    }
+
+    if(db.autoContinueChat){
+        //if result doesn't end with punctuation or special characters, auto continue
+        const lastChar = result.trim().at(-1)
+        const punctuation = [
+            '.', '!', '?', '。', '！', '？', '…', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '+', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '.', '/', '~', '`', ' ',
+            '¡', '¿', '‽', '⁉'
+        ]
+        if(lastChar && !(punctuation.indexOf(lastChar) !== -1
+            //spacing modifier letters
+            || (lastChar.charCodeAt(0) >= 0x02B0 && lastChar.charCodeAt(0) <= 0x02FF)
+            //combining diacritical marks
+            || (lastChar.charCodeAt(0) >= 0x0300 && lastChar.charCodeAt(0) <= 0x036F)
+            //hebrew punctuation
+            || (lastChar.charCodeAt(0) >= 0x0590 && lastChar.charCodeAt(0) <= 0x05CF)
+            //CJK symbols and punctuation
+            || (lastChar.charCodeAt(0) >= 0x3000 && lastChar.charCodeAt(0) <= 0x303F)
+        )){
+            needsAutoContinue = true
+        }
+    }
+
+    if(needsAutoContinue){
         doingChat.set(false)
         return await sendChat(chatProcessIndex, {
             chatAdditonalTokens: arg.chatAdditonalTokens,
             continue: true,
-            signal: abortSignal
+            signal: abortSignal,
+            usedContinueTokens: resultTokens
         })
     }
 
