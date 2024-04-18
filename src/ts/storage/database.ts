@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.95.4"
+export let appVer = "1.95.5"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -385,6 +385,8 @@ export function setDatabase(data:Database){
     data.maxSupaChunkSize ??= 1200
     data.ollamaURL ??= ''
     data.ollamaModel ??= ''
+    data.autoContinueChat ??= false
+    data.autoContinueMinTokens ??= 0
 
     changeLanguage(data.language)
     DataBase.set(data)
@@ -622,6 +624,8 @@ export interface Database{
     maxSupaChunkSize:number
     ollamaURL:string
     ollamaModel:string
+    autoContinueChat:boolean
+    autoContinueMinTokens:number
 }
 
 export interface customscript{
