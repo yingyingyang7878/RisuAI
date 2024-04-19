@@ -15,7 +15,7 @@ import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
 export const DataBase = writable({} as any as Database)
 export const loadedStore = writable(false)
-export let appVer = "1.95.6"
+export let appVer = "1.96.0"
 export let webAppSubVer = ''
 
 export function setDatabase(data:Database){
@@ -387,6 +387,10 @@ export function setDatabase(data:Database){
     data.ollamaModel ??= ''
     data.autoContinueChat ??= false
     data.autoContinueMinTokens ??= 0
+    data.repetition_penalty ??= 1
+    data.min_p ??= 0
+    data.top_a ??= 0
+    data.customTokenizer ??= 'tik'
 
     changeLanguage(data.language)
     DataBase.set(data)
@@ -608,6 +612,9 @@ export interface Database{
         }
     },
     top_k:number
+    repetition_penalty:number
+    min_p:number
+    top_a:number
     claudeAws:boolean
     lastPatchNoteCheckVersion?:string,
     removePunctuationHypa?:boolean
@@ -626,6 +633,8 @@ export interface Database{
     ollamaModel:string
     autoContinueChat:boolean
     autoContinueMinTokens:number
+    removeIncompleteResponse:boolean
+    customTokenizer:string
 }
 
 export interface customscript{
