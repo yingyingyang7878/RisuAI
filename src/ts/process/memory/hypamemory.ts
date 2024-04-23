@@ -1,5 +1,4 @@
 import localforage from "localforage";
-import { similarity } from "ml-distance";
 import { globalFetch } from "src/ts/storage/globalApi";
 import { runEmbedding } from "../transformers";
 
@@ -8,9 +7,9 @@ export class HypaProcesser{
     oaikey:string
     vectors:memoryVector[]
     forage:LocalForage
-    model:'ada'|'MiniLM'
+    model:'ada'|'MiniLM'|'nomic'
 
-    constructor(model:'ada'|'MiniLM'){
+    constructor(model:'ada'|'MiniLM'|'nomic'){
         this.forage = localforage.createInstance({
             name: "hypaVector"
         })
@@ -36,11 +35,11 @@ export class HypaProcesser{
     
     
     async getEmbeds(input:string[]|string) {
-        if(this.model === 'MiniLM'){
+        if(this.model === 'MiniLM' || this.model === 'nomic'){
             const inputs:string[] = Array.isArray(input) ? input : [input]
             let results:Float32Array[] = []
             for(let i=0;i<inputs.length;i++){
-                const res = await runEmbedding(inputs[i])
+                const res = await runEmbedding(inputs[i], this.model === 'nomic' ? 'nomic-ai/nomic-embed-text-v1.5' : 'Xenova/all-MiniLM-L6-v2')
                 results.push(res)
             }
             //convert to number[][]
@@ -92,7 +91,7 @@ export class HypaProcesser{
     async addText(texts:string[]) {
 
         for(let i=0;i<texts.length;i++){
-            const itm:memoryVector = await this.forage.getItem(texts[i])
+            const itm:memoryVector = await this.forage.getItem(texts[i] + '|' + this.model)
             if(itm){
                 itm.alreadySaved = true
                 this.vectors.push(itm)
@@ -121,7 +120,7 @@ export class HypaProcesser{
         for(let i=0;i<memoryVectors.length;i++){
             const vec = memoryVectors[i]
             if(!vec.alreadySaved){
-                await this.forage.setItem(texts[i], vec)
+                await this.forage.setItem(texts[i] + '|' + this.model, vec)
             }
         }
 
@@ -144,7 +143,7 @@ export class HypaProcesser{
           const memoryVectors = this.vectors
           const searches = memoryVectors
               .map((vector, index) => ({
-              similarity: similarity.cosine(query, vector.embedding),
+              similarity: similarity(query, vector.embedding),
               index,
               }))
               .sort((a, b) => (a.similarity > b.similarity ? -1 : 0))
@@ -158,10 +157,12 @@ export class HypaProcesser{
     }
 
     similarityCheck(query1:number[],query2: number[]) {
-        return similarity.cosine(query1, query2)
+        return similarity(query1, query2)
     }
 }
-
+function similarity(a:number[], b:number[]) {
+    return a.reduce((acc, val, i) => acc + val * b[i], 0);
+}
 
 type memoryVector = {
     embedding:number[]

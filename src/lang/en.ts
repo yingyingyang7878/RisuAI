@@ -577,4 +577,7 @@ export const languageEnglish = {
     autoContinueChat: "Anti-Incomplete Response (Auto Continue)",
     removeIncompleteResponse: "Remove Incomplete Sentences",
     tokenizer: "Tokenizer",
+    chatFormating: "Chat Formating",
+    useInstructPrompt: "Use Instruction Prompt",
+    hanuraiMemory: "HanuraiMemory",
 }
