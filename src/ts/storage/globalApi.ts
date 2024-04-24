@@ -960,6 +960,8 @@ async function checkNewFormat() {
     if(db.mainPrompt === oldJailbreak){
         db.mainPrompt = defaultJailbreak
     }
+    //@ts-ignore
+    if(db.proomptSettings){ db.promptSettings = db.proomptSettingsdelete; delete db.proomptSettings }
 
     setDatabase(db)
     checkCharOrder()
@@ -984,7 +986,7 @@ export function checkCharOrder() {
         const charId = db.characters[i].chaId
         charIdList.push(charId)
         if(!ordered.includes(charId)){
-            if(charId !== '§temp'){
+            if(charId !== '§temp' && charId !== '§playground'){
                 db.characterOrder.push(charId)
             }
         }

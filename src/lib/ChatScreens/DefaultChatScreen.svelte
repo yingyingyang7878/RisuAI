@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Suggestion from './Suggestion.svelte';
 	import AdvancedChatEditor from './AdvancedChatEditor.svelte';
-    import { CameraIcon, DatabaseIcon, DicesIcon, GlobeIcon, ImagePlusIcon, LanguagesIcon, Laugh, MenuIcon, MicOffIcon, PackageIcon, RefreshCcwIcon, ReplyIcon, Send, StepForwardIcon } from "lucide-svelte";
-    import { CurrentCharacter, CurrentChat, CurrentUsername, selectedCharID, CurrentUserIcon, CurrentShowMemoryLimit,CurrentSimpleCharacter } from "../../ts/stores";
+    import { CameraIcon, DatabaseIcon, DicesIcon, GlobeIcon, ImagePlusIcon, LanguagesIcon, Laugh, MenuIcon, MicOffIcon, PackageIcon, Plus, RefreshCcwIcon, ReplyIcon, Send, StepForwardIcon } from "lucide-svelte";
+    import { CurrentCharacter, CurrentChat, CurrentUsername, selectedCharID, CurrentUserIcon, CurrentShowMemoryLimit,CurrentSimpleCharacter, PlaygroundStore } from "../../ts/stores";
     import Chat from "./Chat.svelte";
     import { DataBase, type Message, type character, type groupChat } from "../../ts/storage/database";
     import { getCharImage } from "../../ts/characters";
@@ -25,6 +25,7 @@
     import { processMultiCommand } from 'src/ts/process/command';
     import { postChatFile } from 'src/ts/process/files/multisend';
   import { getInlayImage } from 'src/ts/process/files/image';
+  import PlaygroundMenu from '../Playground/PlaygroundMenu.svelte';
 
     let messageInput:string = ''
     let messageInputTranslate:string = ''
@@ -391,7 +392,11 @@
     openMenu = false
 }}>
     {#if $selectedCharID < 0}
-        <MainMenu />
+        {#if $PlaygroundStore === 0}
+            <MainMenu />
+        {:else}
+            <PlaygroundMenu />
+        {/if}
     {:else}
         <div class="h-full w-full flex flex-col-reverse overflow-y-auto relative default-chat-screen"  on:scroll={(e) => {
             //@ts-ignore  
@@ -447,14 +452,26 @@
                         class="mr-2 bg-textcolor2 flex justify-center items-center text-gray-100 w-12 h-12 rounded-md hover:bg-green-500 transition-colors"><Send />
                     </div>
                 {/if}
+                {#if $CurrentCharacter.chaId !== '§playground'}
                     <div on:click={(e) => {
                         openMenu = !openMenu
                         e.stopPropagation()
                     }}
                     class="mr-2 bg-textcolor2 flex justify-center items-center text-gray-100 w-12 h-12 rounded-md hover:bg-green-500 transition-colors"><MenuIcon />
                     </div>
+                {:else}
+                    <div on:click={(e) => {
+                        $CurrentChat.message.push({
+                            role: 'char',
+                            data: ''
+                        })
+                        $CurrentChat = $CurrentChat
+                    }}
+                        class="mr-2 bg-textcolor2 flex justify-center items-center text-gray-100 w-12 h-12 rounded-md hover:bg-green-500 transition-colors"><Plus />
+                    </div>
+                {/if}
             </div>
-            {#if $DataBase.useAutoTranslateInput && !$DataBase.useAdvancedEditor}
+            {#if $DataBase.useAutoTranslateInput && !$DataBase.useAdvancedEditor && $CurrentCharacter.chaId !== '§playground'}
                 <div class="flex items-center mt-2 mb-2">
                     <label for='messageInputTranslate' class="text-textcolor ml-4">
                         <LanguagesIcon />
@@ -562,7 +579,7 @@
                 {/if}
             {/each}
             {#if $CurrentChat.message.length <= loadPages}
-                {#if $CurrentCharacter.type !== 'group'}
+                {#if $CurrentCharacter.type !== 'group' && $CurrentCharacter.chaId !== '§playground'}
                     <Chat
                         character={$CurrentSimpleCharacter}
                         name={$CurrentCharacter.name}
@@ -721,17 +738,6 @@
     {/if}
 </div>
 <style>
-    .loadmove {
-        animation: spin 1s linear infinite;
-        border-radius: 50%;
-        border: 0.4rem solid rgba(0,0,0,0);
-        width: 1rem;
-        height: 1rem;
-        border-top: 0.4rem solid var(--risu-theme-borderc);
-        border-left: 0.4rem solid var(--risu-theme-borderc);
-        /* transition colors */
-        transition: border-color 0.5s;
-    }
 
     .chat-process-stage-1{
         border-top: 0.4rem solid #60a5fa;
