@@ -3,7 +3,7 @@
     import SelectInput from "src/lib/UI/GUI/SelectInput.svelte";
     import OptionInput from "src/lib/UI/GUI/OptionInput.svelte";
     import { DataBase } from "src/ts/storage/database";
-  import { language } from "src/lang";
+    import { language } from "src/lang";
 </script>
 
 <span class="text-textcolor">{language.chatFormating}</span>
@@ -21,5 +21,5 @@
 
 {#if $DataBase.instructChatTemplate === 'jinja'}
     <span class="text-textcolor">Jinja Template</span>
-    <TextAreaInput fullwidth autocomplete="off" height={"24"} bind:value={$DataBase.JinjaTemplate} />
+    <TextAreaInput fullwidth autocomplete="off" bind:value={$DataBase.JinjaTemplate} />
 {/if}

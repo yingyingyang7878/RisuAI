@@ -12,7 +12,6 @@
     import { isExpTranslator, translate } from "../../ts/translator/translator";
     import { alertError, alertNormal, alertWait } from "../../ts/alert";
     import sendSound from '../../etc/send.mp3'
-    import {cloneDeep} from 'lodash'
     import { processScript } from "src/ts/process/scripts";
     import CreatorQuote from "./CreatorQuote.svelte";
     import { stopTTS } from "src/ts/process/tts";
@@ -24,8 +23,8 @@
     import { PreUnreroll, Prereroll } from 'src/ts/process/prereroll';
     import { processMultiCommand } from 'src/ts/process/command';
     import { postChatFile } from 'src/ts/process/files/multisend';
-  import { getInlayImage } from 'src/ts/process/files/image';
-  import PlaygroundMenu from '../Playground/PlaygroundMenu.svelte';
+    import { getInlayImage } from 'src/ts/process/files/image';
+    import PlaygroundMenu from '../Playground/PlaygroundMenu.svelte';
 
     let messageInput:string = ''
     let messageInputTranslate:string = ''
@@ -140,7 +139,7 @@
             if(Array.isArray(rerolls[rerollid + 1])){
                 let db = $DataBase
                 rerollid += 1
-                let rerollData = cloneDeep(rerolls[rerollid])
+                let rerollData = structuredClone(rerolls[rerollid])
                 let msgs = db.characters[$selectedCharID].chats[$CurrentCharacter.chatPage].message
                 for(let i = 0; i < rerollData.length; i++){
                     msgs[msgs.length - rerollData.length + i] = rerollData[i]
@@ -151,10 +150,10 @@
             return
         }
         if(rerolls.length === 0){
-            rerolls.push(cloneDeep([$CurrentChat.message.at(-1)]))
+            rerolls.push(structuredClone([$CurrentChat.message.at(-1)]))
             rerollid = rerolls.length - 1
         }
-        let cha = cloneDeep($CurrentChat.message)
+        let cha = structuredClone($CurrentChat.message)
         if(cha.length === 0 ){
             return
         }
@@ -199,7 +198,7 @@
         if(Array.isArray(rerolls[rerollid - 1])){
             let db = $DataBase
             rerollid -= 1
-            let rerollData = cloneDeep(rerolls[rerollid])
+            let rerollData = structuredClone(rerolls[rerollid])
             let msgs = db.characters[$selectedCharID].chats[$CurrentCharacter.chatPage].message
             for(let i = 0; i < rerollData.length; i++){
                 msgs[msgs.length - rerollData.length + i] = rerollData[i]
@@ -222,7 +221,7 @@
                 continue:continued
             })
             if(previousLength < $CurrentChat.message.length){
-                rerolls.push(cloneDeep($CurrentChat.message).slice(previousLength))
+                rerolls.push(structuredClone($CurrentChat.message).slice(previousLength))
                 rerollid = rerolls.length - 1
             }
         } catch (error) {
@@ -452,7 +451,7 @@
                         class="mr-2 bg-textcolor2 flex justify-center items-center text-gray-100 w-12 h-12 rounded-md hover:bg-green-500 transition-colors"><Send />
                     </div>
                 {/if}
-                {#if $CurrentCharacter.chaId !== '§playground'}
+                {#if $CurrentCharacter?.chaId !== '§playground'}
                     <div on:click={(e) => {
                         openMenu = !openMenu
                         e.stopPropagation()
@@ -471,7 +470,7 @@
                     </div>
                 {/if}
             </div>
-            {#if $DataBase.useAutoTranslateInput && !$DataBase.useAdvancedEditor && $CurrentCharacter.chaId !== '§playground'}
+            {#if $DataBase.useAutoTranslateInput && !$DataBase.useAdvancedEditor && $CurrentCharacter?.chaId !== '§playground'}
                 <div class="flex items-center mt-2 mb-2">
                     <label for='messageInputTranslate' class="text-textcolor ml-4">
                         <LanguagesIcon />
@@ -579,7 +578,7 @@
                 {/if}
             {/each}
             {#if $CurrentChat.message.length <= loadPages}
-                {#if $CurrentCharacter.type !== 'group' && $CurrentCharacter.chaId !== '§playground'}
+                {#if $CurrentCharacter.type !== 'group' }
                     <Chat
                         character={$CurrentSimpleCharacter}
                         name={$CurrentCharacter.name}

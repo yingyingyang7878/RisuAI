@@ -590,7 +590,7 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 const now = new Date()
                 return `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`
             }
-            case 'idle_duration':{
+            case 'message_idle_duration':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -641,6 +641,36 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                 seconds = seconds % 60
                 minutes = minutes % 60
                 //output, like 1:30:00
+                return hours.toString() + ':' + minutes.toString().padStart(2,'0') + ':' + seconds.toString().padStart(2,'0')
+            }
+            case 'idle_duration':{
+                if(matcherArg.tokenizeAccurate){
+                    return `00:00:00`
+                }
+                const selchar = db.characters[get(selectedCharID)]
+                const chat = selchar.chats[selchar.chatPage]
+                const messages = chat.message
+                if(messages.length === 0){
+                    return `00:00:00`
+                }
+
+                const lastMessage = messages[messages.length - 1]
+
+                if(!lastMessage.time){
+                    return "[Cannot get time, message was sent in older version]"
+                }
+
+                const now = new Date()
+
+                let duration = now.getTime() - lastMessage.time
+
+                let seconds = Math.floor(duration / 1000)
+                let minutes = Math.floor(seconds / 60)
+                let hours = Math.floor(minutes / 60)
+
+                seconds = seconds % 60
+                minutes = minutes % 60
+                
                 return hours.toString() + ':' + minutes.toString().padStart(2,'0') + ':' + seconds.toString().padStart(2,'0')
             }
             case 'br':
@@ -703,6 +733,9 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
             case 'prefill_supported':{
                 return db.aiModel.startsWith('claude') ? '1' : '0'
             }
+            case 'unixtime':{
+                return (Date.now() / 1000).toFixed(2)
+            }
         }
         const arra = p1.split("::")
         if(arra.length > 1){
@@ -730,6 +763,18 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                     }
                     if(matcherArg.runVar){
                         setChatVar(v, arra[2])
+                        return ''
+                    }
+                    return null
+                }
+                case 'setdefaultvar':{
+                    if(matcherArg.rmVar){
+                        return ''
+                    }
+                    if(matcherArg.runVar){
+                        if(!getChatVar(v)){
+                            setChatVar(v, arra[2])
+                        }
                         return ''
                     }
                     return null
@@ -904,6 +949,12 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
                     }
                     return out
                 }
+                case 'date':
+                case 'time':
+                case 'datetimeformat':
+                case 'date_time_format':{
+                    return dateTimeFormat(arra[1])
+                }
             }
         }
         if(p1.startsWith('random')){
@@ -957,31 +1008,46 @@ const matcher = (p1:string,matcherArg:matcherArg) => {
             return (Math.floor(Math.random() * maxRoll) + 1).toString()
         }
         if(p1.startsWith('datetimeformat')){
-            const date = new Date()
             let main = p1.substring("datetimeformat".length + 1)
-            if(!main){
-                return ''
-            }
-            if(main.startsWith(':')){
-                main = main.substring(1)
-            }
-            return main
-                .replace(/YYYY/g, date.getFullYear().toString())
-                .replace(/YY/g, date.getFullYear().toString().substring(2))
-                .replace(/MM?/g, (date.getMonth() + 1).toString().padStart(2, '0'))
-                .replace(/DD?/g, date.getDate().toString().padStart(2, '0'))
-                .replace(/DDDD?/g, (date.getDay() + (date.getMonth() * 30)).toString())
-                .replace(/HH?/g, date.getHours().toString().padStart(2, '0'))
-                .replace(/hh?/g, (date.getHours() % 12).toString().padStart(2, '0'))
-                .replace(/mm?/g, date.getMinutes().toString().padStart(2, '0'))
-                .replace(/ss?/g, date.getSeconds().toString().padStart(2, '0'))
-                .replace(/A/g, date.getHours() >= 12 ? 'PM' : 'AM')
-                .replace(/MMMM?/g, Intl.DateTimeFormat('en', { month: 'long' }).format(date))
+            return dateTimeFormat(main)
+        }
+        if(p1.startsWith('? ')){
+            const substring = p1.substring(2)
+
+            return calcString(substring).toString()
         }
         return null        
     } catch (error) {
         return null   
     }
+}
+
+const dateTimeFormat = (main:string) => {
+    const date = new Date()
+    if(!main){
+        return ''
+    }
+    if(main.startsWith(':')){
+        main = main.substring(1)
+    }
+    if(main.length > 300){
+        return ''
+    }
+    return main
+        .replace(/YYYY/g, date.getFullYear().toString())
+        .replace(/YY/g, date.getFullYear().toString().substring(2))
+        .replace(/MM?/g, (date.getMonth() + 1).toString().padStart(2, '0'))
+        .replace(/DD?/g, date.getDate().toString().padStart(2, '0'))
+        .replace(/DDDD?/g, (date.getDay() + (date.getMonth() * 30)).toString())
+        .replace(/HH?/g, date.getHours().toString().padStart(2, '0'))
+        .replace(/hh?/g, (date.getHours() % 12).toString().padStart(2, '0'))
+        .replace(/mm?/g, date.getMinutes().toString().padStart(2, '0'))
+        .replace(/ss?/g, date.getSeconds().toString().padStart(2, '0'))
+        .replace(/X?/g, (Date.now() / 1000).toFixed(2))
+        .replace(/x?/g, Date.now().toFixed())
+        .replace(/A/g, date.getHours() >= 12 ? 'PM' : 'AM')
+        .replace(/MMMM?/g, Intl.DateTimeFormat('en', { month: 'long' }).format(date))
+
 }
 
 const smMatcher = (p1:string,matcherArg:matcherArg) => {
@@ -1172,6 +1238,10 @@ export function risuChatParser(da:string, arg:{
                 break
             }
             case '<':{
+                if(stackType[nested.length] === 1){
+                    nested[0] += da[pointer]
+                    break
+                }
                 nested.unshift('')
                 stackType[nested.length] = 2
                 break
@@ -1258,6 +1328,10 @@ export function risuChatParser(da:string, arg:{
                 break
             }
             case '>':{
+                if(stackType[nested.length] === 1){
+                    nested[0] += da[pointer]
+                    break
+                }
                 if(nested.length === 1 || stackType[nested.length] !== 2){
                     break
                 }
@@ -1358,6 +1432,9 @@ export function getChatVar(key:string){
     const db = get(DataBase)
     const selectedChar = get(selectedCharID)
     const char = db.characters[selectedChar]
+    if(!char){
+        return 'null'
+    }
     const chat = char.chats[char.chatPage]
     chat.scriptstate = chat.scriptstate ?? {}
     return (chat.scriptstate['$' + key])?.toString() ?? 'null'

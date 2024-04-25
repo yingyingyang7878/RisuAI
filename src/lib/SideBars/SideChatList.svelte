@@ -9,8 +9,8 @@
     import Button from "../UI/GUI/Button.svelte";
     import { findCharacterbyId } from "src/ts/util";
     import CheckInput from "../UI/GUI/CheckInput.svelte";
-  import { createMultiuserRoom } from "src/ts/sync/multiuser";
-  import { CurrentCharacter } from "src/ts/stores";
+    import { createMultiuserRoom } from "src/ts/sync/multiuser";
+    import { CurrentCharacter } from "src/ts/stores";
     export let chara:character|groupChat
     let editMode = false
 </script>
@@ -105,7 +105,7 @@
             </button>
         </div>
 
-        {#if $CurrentCharacter.chaId !== '§playground'}
+        {#if $CurrentCharacter?.chaId !== '§playground'}
             <div class="flex mt-2 items-center">
                 <CheckInput bind:check={$DataBase.jailbreakToggle} name={language.jailbreakToggle}/>
             </div>

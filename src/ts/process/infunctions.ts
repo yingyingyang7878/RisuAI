@@ -1,3 +1,4 @@
+import { getChatVar } from "../parser";
 
 function toRPN(expression:string) {
     let outputQueue = '';
@@ -7,16 +8,21 @@ function toRPN(expression:string) {
         '-': {precedence: 2, associativity: 'Left'},
         '*': {precedence: 3, associativity: 'Left'},
         '/': {precedence: 3, associativity: 'Left'},
-        '^': {precedence: 4, associativity: 'Right'},
+        '^': {precedence: 4, associativity: 'Left'},
+        '%': {precedence: 3, associativity: 'Left'},
+        '<': {precedence: 1, associativity: 'Left'},
+        '>': {precedence: 1, associativity: 'Left'},
+        '|': {precedence: 0, associativity: 'Left'},
+        '&': {precedence: 0, associativity: 'Left'},
     };
 
     expression = expression.replace(/\s+/g, '');
-    let expression2 = expression.split(/([\+\-\*\/])/).filter(token => token);
+    let expression2 = expression.split(/([\+\-\*\/\^\%\>\<\|\&])/).filter(token => token);
 
     expression2.forEach(token => {
         if (parseFloat(token) || token === '0') {
             outputQueue += token + ' ';
-        } else if ('+-*/^'.includes(token)) {
+        } else if ('+-*/^%><|&'.includes(token)) {
             while (operatorStack.length > 0 &&
             ((operators[token].associativity === 'Left' &&
             operators[token].precedence <= operators[operatorStack[operatorStack.length - 1]].precedence) ||
@@ -50,15 +56,51 @@ function calculateRPN(expression:string) {
                 case '*': stack.push(a * b); break;
                 case '/': stack.push(a / b); break;
                 case '^': stack.push(a ** b); break;
+                case '%': stack.push(a % b); break;
+                case '<': stack.push(a < b ? 1 : 0); break;
+                case '>': stack.push(a > b ? 1 : 0); break;
+                case '|': stack.push(a || b); break;
+                case '&': stack.push(a && b); break;
             }
         }
     });
 
-    return stack.pop();
+    if(stack.length === 0){
+        return 0
+    }
+
+    return stack.pop()
 }
 
-export function calcString(args:string) {
-    const expression = toRPN(args);
+function executeRPNCalculation(text:string) {
+    text = text.replace(/\$([a-zA-Z0-9_]+)/g, (_, p1) => {
+        const v = getChatVar(p1)
+        const parsed = parseFloat(v)
+        if(isNaN(parsed)){
+            return "0"
+        }
+        return parsed.toString()
+    })
+    const expression = toRPN(text);
     const evaluated = calculateRPN(expression);
     return evaluated
+}
+
+export function calcString(text:string) {
+    let depthText:string[] = ['']
+
+    for(let i = 0; i < text.length; i++) {
+        if(text[i] === '(') {
+            depthText.push('')
+        }
+        else if(text[i] === ')' && depthText.length > 1) {
+            let result = executeRPNCalculation(depthText.pop())
+            depthText[depthText.length - 1] += result
+        }
+        else {
+            depthText[depthText.length - 1] += text[i]
+        }
+    }
+
+    return executeRPNCalculation(depthText.join(''))
 }

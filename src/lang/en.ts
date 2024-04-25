@@ -581,7 +581,11 @@ export const languageEnglish = {
     useInstructPrompt: "Use Instruction Prompt",
     hanuraiMemory: "HanuraiMemory",
     playground: "Playground",
+    textAreaSize: "Input Area Size",
+    textAreaTextSize: "Input Area Text Size",
+    sideBarSize: "Sidebar Size",
     embedding: "Embedding",
     syntax: "Syntax",
     run: "Run",
+    noMessage: "Type something to start the chat.",
 }

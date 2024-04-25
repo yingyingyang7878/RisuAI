@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {
+    import {
     CharEmotion,
     DynamicGUI,
     botMakerMode,
@@ -15,10 +15,10 @@
 
 
   } from "../../ts/stores";
-  import { DataBase, setDatabase, type folder } from "../../ts/storage/database";
-  import BarIcon from "./BarIcon.svelte";
-  import SidebarIndicator from "./SidebarIndicator.svelte";
-  import {
+    import { DataBase, setDatabase, type folder } from "../../ts/storage/database";
+    import BarIcon from "./BarIcon.svelte";
+    import SidebarIndicator from "./SidebarIndicator.svelte";
+    import {
     ShellIcon,
     Settings,
     ListIcon,
@@ -26,38 +26,36 @@
     FolderIcon,
     FolderOpenIcon,
     HomeIcon,
-    MilestoneIcon,
   } from "lucide-svelte";
-  import {
+    import {
     characterFormatUpdate,
     createNewCharacter,
     createNewGroup,
     getCharImage,
   } from "../../ts/characters";
-  import { importCharacter } from "src/ts/characterCards";
-  import CharConfig from "./CharConfig.svelte";
-  import { language } from "../../lang";
-  import Botpreset from "../Setting/botpreset.svelte";
-  import { onDestroy, onMount } from "svelte";
-  import { cloneDeep, isEqual } from "lodash";
-  import SidebarAvatar from "./SidebarAvatar.svelte";
-  import BaseRoundedButton from "../UI/BaseRoundedButton.svelte";
-  import { get } from "svelte/store";
-  import { findCharacterIndexbyId, findCharacterbyId, getCharacterIndexObject, sleep } from "src/ts/util";
-  import { v4 } from "uuid";
-  import { checkCharOrder } from "src/ts/storage/globalApi";
-  import { doingChat } from "src/ts/process";
-  import { BotCreator } from "src/ts/creation/creator";
-  import Button from "../UI/GUI/Button.svelte";
-  import { fly } from "svelte/transition";
-  import { alertAddCharacter, alertInput, alertSelect } from "src/ts/alert";
-  import SideChatList from "./SideChatList.svelte";
-  import { joinMultiuserRoom } from "src/ts/sync/multiuser";
+    import { importCharacter } from "src/ts/characterCards";
+    import CharConfig from "./CharConfig.svelte";
+    import { language } from "../../lang";
+    import Botpreset from "../Setting/botpreset.svelte";
+    import { onDestroy } from "svelte";
+    import { isEqual } from "lodash";
+    import SidebarAvatar from "./SidebarAvatar.svelte";
+    import BaseRoundedButton from "../UI/BaseRoundedButton.svelte";
+    import { get } from "svelte/store";
+    import { getCharacterIndexObject } from "src/ts/util";
+    import { v4 } from "uuid";
+    import { checkCharOrder } from "src/ts/storage/globalApi";
+    import { doingChat } from "src/ts/process";
+    import { BotCreator } from "src/ts/creation/creator";
+    import Button from "../UI/GUI/Button.svelte";
+    import { alertAddCharacter, alertInput, alertSelect } from "src/ts/alert";
+    import SideChatList from "./SideChatList.svelte";
+    import { joinMultiuserRoom } from "src/ts/sync/multiuser";
+  import { sideBarSize } from "src/ts/gui/guisize";
   let openPresetList = false;
   let sideBarMode = 0;
   let editMode = false;
   let menuMode = 0;
-  let dragable = navigator.maxTouchPoints <= 1
   export let openGrid = () => {};
 
   function createScratch() {
@@ -178,7 +176,7 @@
       const da = db.characterOrder[mainIndex.index]
       if(typeof(da) !== 'string'){
         mainId = da.id
-        movingFolder = cloneDeep(da)
+        movingFolder = structuredClone(da)
         if(targetIndex.folder){
           return
         }
@@ -617,10 +615,17 @@
   </div>
 </div>
 <div
-  class="setting-area w-96 h-full flex-col overflow-y-auto overflow-x-hidden bg-darkbg py-6 text-textcolor max-h-full"
+  class="setting-area h-full flex-col overflow-y-auto overflow-x-hidden bg-darkbg py-6 text-textcolor max-h-full"
   class:risu-sidebar={!$sideBarClosing}
+  class:w-96={$sideBarSize === 0}
+  class:w-110={$sideBarSize === 1}
+  class:w-124={$sideBarSize === 2}
+  class:w-138={$sideBarSize === 3}
   class:risu-sidebar-close={$sideBarClosing}
-  class:minw96={!$DynamicGUI}
+  class:min-w-96={!$DynamicGUI && $sideBarSize === 0}
+  class:min-w-110={!$DynamicGUI && $sideBarSize === 1}
+  class:min-w-124={!$DynamicGUI && $sideBarSize === 2}
+  class:min-w-138={!$DynamicGUI && $sideBarSize === 3}
   class:px-2={$DynamicGUI}
   class:px-4={!$DynamicGUI}
   class:dynamic-sidebar={$DynamicGUI}
@@ -650,7 +655,7 @@
         <h1 class="text-xl">Welcome to RisuAI!</h1>
         <span class="text-xs text-textcolor2">Select a bot to start chating</span>
       </div>
-    {:else if $CurrentCharacter.chaId === '§playground'}
+    {:else if $CurrentCharacter?.chaId === '§playground'}
       <SideChatList bind:chara={ $CurrentCharacter} />
     {:else}
       <div class="w-full h-8 min-h-8 border-l border-b border-r border-selected relative bottom-6 rounded-b-md flex">
@@ -721,9 +726,6 @@
 {/if}
 
 <style>
-  .minw96 {
-    min-width: 24rem; /* 384px */
-  }
   .editMode {
     min-width: 6rem;
   }
@@ -732,12 +734,12 @@
       width: 0rem;
     }
     to {
-      width: 24rem;
+      width: var(--sidebar-size);
     }
   }
   @keyframes sidebar-transition-close {
     from {
-      width: 24rem;
+      width: var(--sidebar-size);
       right:0rem;
     }
     to {
@@ -751,14 +753,14 @@
       min-width: 0rem;
     }
     to {
-      width: 24rem;
-      min-width: 24rem;
+      width: var(--sidebar-size);
+      min-width: var(--sidebar-size);
     }
   }
   @keyframes sidebar-transition-close-non-dynamic {
     from {
-      width: 24rem;
-      min-width: 24rem;
+      width: var(--sidebar-size);
+      min-width: var(--sidebar-size);
       right:0rem;
     }
     to {
